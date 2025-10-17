@@ -1,0 +1,22 @@
+{
+    "name": "doodle-jump-telegram",
+    "version": "1.0.0",
+    "description": "Doodle Jump game for Telegram Mini Apps",
+    "main": "index.html",
+    "scripts": {
+      "dev": "python -m http.server 8000",
+      "build": "echo 'No build process needed'",
+      "deploy": "echo 'Deploy to your hosting'"
+    },
+    "keywords": [
+      "telegram",
+      "miniapp",
+      "game",
+      "doodle-jump",
+      "html5"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "devDependencies": {},
+    "dependencies": {}
+  }

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodle Jump - Telegram</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Arial', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            touch-action: none;
+        }
+        #gameContainer { position: relative; width: 100vw; height: 100vh; }
+        #gameCanvas { 
+            display: block; 
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+            margin: 0 auto;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="360" height="600"></canvas>
+        <div id="scoreDisplay">Score: 0</div>
+        <div id="startScreen">
+            <h1>Doodle Jump</h1>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+    </div>
+
+    <script>
+        // Упрощенная версия игры
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const startScreen = document.getElementById('startScreen');
+
+        let player = { x: 160, y: 500, width: 40, height: 40, velocityY: 0 };
+        let platforms = [];
+        let score = 0;
+        let gameRunning = false;
+
+        // Создаем начальные платформы
+        function createPlatforms() {
+            platforms = [];
+            platforms.push({ x: 150, y: 550, width: 70, height: 20 });
+            
+            for (let i = 0; i < 8; i++) {
+                platforms.push({
+                    x: Math.random() * 290,
+                    y: 500 - i * 80,
+                    width: 70,
+                    height: 20
+                });
+            }
+        }
+
+        function startGame() {
+            gameRunning = true;
+            startScreen.style.display = 'none';
+            player = { x: 160, y: 500, width: 40, height: 40, velocityY: 0 };
+            score = 0;
+            createPlatforms();
+            gameLoop();
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Гравитация
+            player.velocityY += 0.5;
+            player.y += player.velocityY;
+
+            // Проверка столкновений с платформами
+            platforms.forEach(platform => {
+                if (player.y + player.height > platform.y &&
+                    player.y < platform.y + platform.height &&
+                    player.x + player.width > platform.x &&
+                    player.x < platform.x + platform.width &&
+                    player.velocityY > 0) {
+                    player.velocityY = -12; // Прыжок
+                }
+            });
+
+            // Прокрутка мира
+            if (player.y < 200) {
+                const scroll = 200 - player.y;
+                player.y = 200;
+                platforms.forEach(platform => {
+                    platform.y += scroll;
+                    if (platform.y > 600) {
+                        platform.y = 0;
+                        platform.x = Math.random() * 290;
+                    }
+                });
+                score += scroll * 0.1;
+                scoreDisplay.textContent = `Score: ${Math.floor(score)}`;
+            }
+
+            // Проверка Game Over
+            if (player.y > 600) {
+                gameRunning = false;
+                startScreen.style.display = 'block';
+                startScreen.innerHTML = `
+                    <h1>Game Over</h1>
+                    <p>Score: ${Math.floor(score)}</p>
+                    <button onclick="startGame()">Play Again</button>
+                `;
+            }
+        }
+
+        function drawGame() {
+            // Очистка
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Рисуем платформы
+            ctx.fillStyle = '#4ECDC4';
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            });
+
+            // Рисуем игрока
+            ctx.fillStyle = '#FF6B6B';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Управление
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') player.x -= 8;
+            if (e.key === 'ArrowRight') player.x += 8;
+        });
+
+        // Сенсорное управление
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            if (touchX < canvas.width / 2) {
+                player.x -= 8;
+            } else {
+                player.x += 8;
+            }
+        });
+
+        // Инициализация
+        createPlatforms();
+        drawGame();
+
+        console.log('Game initialized successfully!');
+    </script>
+</body>
+</html>
