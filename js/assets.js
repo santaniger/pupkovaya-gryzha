@@ -12,42 +12,109 @@ class AssetManager {
     // Загрузка всех изображений
     loadAllAssets() {
         const imageSources = {
-            player: this.createPlayerImage(),
-            platformNormal: this.createPlatformImage(CONFIG.COLORS.PLATFORM_NORMAL, 'normal'),
-            platformBreaking: this.createPlatformImage(CONFIG.COLORS.PLATFORM_BREAKING, 'breaking'),
-            platformMoving: this.createPlatformImage(CONFIG.COLORS.PLATFORM_MOVING, 'moving'),
-            background: this.createBackgroundImage()
+            player: 'assets/images/player.png',
+            background: 'assets/images/background.png',
+            platformNormal: 'assets/images/platform_normal.png',
+            platformBreaking: 'assets/images/platform_breaking.png',
+            platformMoving: 'assets/images/platform_moving.png'
         };
 
         this.totalAssets = Object.keys(imageSources).length;
+        this.loadedAssets = 0;
         
         return new Promise((resolve, reject) => {
-            let loaded = 0;
+            let assetsLoaded = 0;
             
-            Object.entries(imageSources).forEach(([name, image]) => {
-                // Для canvas изображений сразу считаем загруженными
-                this.images[name] = image;
-                loaded++;
-                this.loadedAssets = loaded;
-                this.loadProgress = (loaded / this.totalAssets) * 100;
-                
-                if (loaded === this.totalAssets) {
+            const checkAllLoaded = () => {
+                if (assetsLoaded === this.totalAssets) {
                     this.loaded = true;
                     console.log('All assets loaded successfully');
                     resolve();
                 }
+            };
+            
+            Object.entries(imageSources).forEach(([name, src]) => {
+                this.loadImage(name, src)
+                    .then(() => {
+                        assetsLoaded++;
+                        this.loadedAssets = assetsLoaded;
+                        this.loadProgress = (assetsLoaded / this.totalAssets) * 100;
+                        console.log(`Loaded: ${src}`);
+                        checkAllLoaded();
+                    })
+                    .catch(error => {
+                        console.error(`Failed to load: ${src}`, error);
+                        // Создаем fallback изображение если загрузка не удалась
+                        this.createFallbackImage(name);
+                        assetsLoaded++;
+                        this.loadedAssets = assetsLoaded;
+                        this.loadProgress = (assetsLoaded / this.totalAssets) * 100;
+                        checkAllLoaded();
+                    });
             });
         });
     }
 
-    // Создание изображения игрока
-    createPlayerImage() {
+    // Загрузка одного изображения
+    loadImage(name, src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                this.images[name] = img;
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`Failed to load image: ${src}`);
+                reject(new Error(`Failed to load: ${src}`));
+            };
+            img.src = src;
+        });
+    }
+
+    // Создание fallback изображения если PNG не загрузился
+    createFallbackImage(name) {
+        console.log(`Creating fallback image for: ${name}`);
+        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const size = CONFIG.PLAYER.WIDTH;
-        canvas.width = size;
-        canvas.height = size;
         
+        switch(name) {
+            case 'player':
+                canvas.width = 40;
+                canvas.height = 40;
+                this.createPlayerFallback(ctx, 40);
+                break;
+                
+            case 'background':
+                canvas.width = CONFIG.CANVAS.WIDTH;
+                canvas.height = CONFIG.CANVAS.HEIGHT;
+                this.createBackgroundFallback(ctx);
+                break;
+                
+            case 'platformNormal':
+                canvas.width = 70;
+                canvas.height = 16;
+                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_NORMAL, 'normal');
+                break;
+                
+            case 'platformBreaking':
+                canvas.width = 70;
+                canvas.height = 16;
+                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_BREAKING, 'breaking');
+                break;
+                
+            case 'platformMoving':
+                canvas.width = 70;
+                canvas.height = 16;
+                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_MOVING, 'moving');
+                break;
+        }
+        
+        this.images[name] = canvas;
+    }
+
+    // Fallback для игрока
+    createPlayerFallback(ctx, size) {
         // Тень
         ctx.fillStyle = CONFIG.COLORS.PLAYER_SHADOW;
         ctx.beginPath();
@@ -62,8 +129,88 @@ class AssetManager {
         
         // Детали лица
         this.drawPlayerFace(ctx, size);
+    }
+
+    // Fallback для фона
+    createBackgroundFallback(ctx) {
+        const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS.HEIGHT);
+        gradient.addColorStop(0, CONFIG.COLORS.BACKGROUND_TOP);
+        gradient.addColorStop(1, CONFIG.COLORS.BACKGROUND_BOTTOM);
         
-        return canvas;
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, CONFIG.CANVAS.WIDTH, CONFIG.CANVAS.HEIGHT);
+        
+        // Облака
+        this.drawClouds(ctx);
+    }
+
+    // Fallback для платформ
+    createPlatformFallback(ctx, width, height, color, type) {
+        // Тень
+        ctx.fillStyle = this.darkenColor(color, 20);
+        ctx.fillRect(2, 2, width, height);
+        
+        // Основная платформа
+        const gradient = ctx.createLinearGradient(0, 0, width, 0);
+        gradient.addColorStop(0, this.lightenColor(color, 10));
+        gradient.addColorStop(0.5, color);
+        gradient.addColorStop(1, this.darkenColor(color, 10));
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height - 2);
+        
+        // Верхняя грань
+        ctx.fillStyle = this.lightenColor(color, 20);
+        ctx.fillRect(0, 0, width, 3);
+        
+        // Текстура для разных типов платформ
+        this.drawPlatformTexture(ctx, width, height, type);
+    }
+
+    // Рисование текстуры платформы
+    drawPlatformTexture(ctx, width, height, type) {
+        ctx.strokeStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_SHADOW, 10);
+        ctx.lineWidth = 1;
+        
+        switch(type) {
+            case 'breaking':
+                // Пунктирная текстура для ломающейся платформы
+                ctx.setLineDash([3, 2]);
+                ctx.strokeRect(3, 3, width - 6, height - 6);
+                ctx.setLineDash([]);
+                break;
+                
+            case 'moving':
+                // Стрелки для движущейся платформы
+                ctx.fillStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_MOVING, 20);
+                this.drawArrow(ctx, width * 0.3, height/2, 4, true);
+                this.drawArrow(ctx, width * 0.7, height/2, 4, false);
+                break;
+                
+            default:
+                // Линии для обычной платформы
+                for (let i = 5; i < width; i += 10) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 4);
+                    ctx.lineTo(i, height - 4);
+                    ctx.stroke();
+                }
+        }
+    }
+
+    // Рисование стрелки
+    drawArrow(ctx, x, y, size, left) {
+        ctx.beginPath();
+        if (left) {
+            ctx.moveTo(x + size, y - size);
+            ctx.lineTo(x - size, y);
+            ctx.lineTo(x + size, y + size);
+        } else {
+            ctx.moveTo(x - size, y - size);
+            ctx.lineTo(x + size, y);
+            ctx.lineTo(x - size, y + size);
+        }
+        ctx.fill();
     }
 
     // Рисование лица игрока
@@ -97,105 +244,6 @@ class AssetManager {
         ctx.fill();
     }
 
-    // Создание изображения платформы
-    createPlatformImage(color, type) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const width = CONFIG.PLATFORMS.WIDTH;
-        const height = CONFIG.PLATFORMS.HEIGHT;
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Тень
-        ctx.fillStyle = this.darkenColor(color, 20);
-        ctx.fillRect(2, 2, width, height);
-        
-        // Основная платформа
-        const gradient = ctx.createLinearGradient(0, 0, width, 0);
-        gradient.addColorStop(0, this.lightenColor(color, 10));
-        gradient.addColorStop(0.5, color);
-        gradient.addColorStop(1, this.darkenColor(color, 10));
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height - 2);
-        
-        // Верхняя грань
-        ctx.fillStyle = this.lightenColor(color, 20);
-        ctx.fillRect(0, 0, width, 3);
-        
-        // Текстура для разных типов платформ
-        this.drawPlatformTexture(ctx, width, height, type);
-        
-        return canvas;
-    }
-
-    // Рисование текстуры платформы в зависимости от типа
-    drawPlatformTexture(ctx, width, height, type) {
-        ctx.strokeStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_SHADOW, 10);
-        ctx.lineWidth = 1;
-        
-        switch(type) {
-            case PlatformType.BREAKING:
-                // Пунктирная текстура для ломающейся платформы
-                ctx.setLineDash([3, 2]);
-                ctx.strokeRect(3, 3, width - 6, height - 6);
-                ctx.setLineDash([]);
-                break;
-                
-            case PlatformType.MOVING:
-                // Стрелки для движущейся платформы
-                ctx.fillStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_MOVING, 20);
-                this.drawArrow(ctx, width * 0.3, height/2, 5, true);
-                this.drawArrow(ctx, width * 0.7, height/2, 5, false);
-                break;
-                
-            default:
-                // Линии для обычной платформы
-                for (let i = 5; i < width; i += 10) {
-                    ctx.beginPath();
-                    ctx.moveTo(i, 4);
-                    ctx.lineTo(i, height - 4);
-                    ctx.stroke();
-                }
-        }
-    }
-
-    // Рисование стрелки
-    drawArrow(ctx, x, y, size, left) {
-        ctx.beginPath();
-        if (left) {
-            ctx.moveTo(x + size, y - size);
-            ctx.lineTo(x - size, y);
-            ctx.lineTo(x + size, y + size);
-        } else {
-            ctx.moveTo(x - size, y - size);
-            ctx.lineTo(x + size, y);
-            ctx.lineTo(x - size, y + size);
-        }
-        ctx.fill();
-    }
-
-    // Создание фонового изображения
-    createBackgroundImage() {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = CONFIG.CANVAS.WIDTH;
-        canvas.height = CONFIG.CANVAS.HEIGHT;
-        
-        // Градиентный фон
-        const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS.HEIGHT);
-        gradient.addColorStop(0, CONFIG.COLORS.BACKGROUND_TOP);
-        gradient.addColorStop(1, CONFIG.COLORS.BACKGROUND_BOTTOM);
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Облака
-        this.drawClouds(ctx);
-        
-        return canvas;
-    }
-
     // Рисование облаков на фоне
     drawClouds(ctx) {
         const clouds = [
@@ -203,7 +251,8 @@ class AssetManager {
             { x: 150, y: 120, size: 60 },
             { x: 280, y: 70, size: 50 },
             { x: 200, y: 200, size: 45 },
-            { x: 80, y: 250, size: 55 }
+            { x: 80, y: 250, size: 55 },
+            { x: 300, y: 300, size: 35 }
         ];
         
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -245,6 +294,8 @@ class AssetManager {
     getImage(name) {
         if (!this.images[name]) {
             console.warn(`Image not found: ${name}`);
+            // Создаем fallback на лету
+            this.createFallbackImage(name);
         }
         return this.images[name];
     }

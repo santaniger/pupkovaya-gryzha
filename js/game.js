@@ -376,10 +376,12 @@ class DoodleJumpGame {
     // Очистка canvas
     clearCanvas() {
         const background = this.assets.getImage('background');
-        if (background) {
-            this.ctx.drawImage(background, 0, 0);
+        
+        if (background && background.complete && background.naturalWidth !== 0) {
+            // Используем PNG фон
+            this.ctx.drawImage(background, 0, 0, this.canvas.width, this.canvas.height);
         } else {
-            // Fallback фон
+            // Fallback градиентный фон
             const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
             gradient.addColorStop(0, CONFIG.COLORS.BACKGROUND_TOP);
             gradient.addColorStop(1, CONFIG.COLORS.BACKGROUND_BOTTOM);

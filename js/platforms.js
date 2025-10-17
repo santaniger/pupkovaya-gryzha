@@ -7,42 +7,35 @@ class Platform {
         this.height = CONFIG.PLATFORMS.HEIGHT;
         this.type = type;
         
-        // Свойства для движущихся платформ
         if (this.type === PlatformType.MOVING) {
             this.velocityX = (Math.random() - 0.5) * CONFIG.PLATFORMS.MOVE_SPEED;
             this.movingRange = 80 + Math.random() * 40;
             this.startX = x;
         }
         
-        // Свойства для ломающихся платформ
         if (this.type === PlatformType.BREAKING) {
             this.breaking = false;
             this.breakProgress = 0;
             this.breakTimer = 0;
         }
         
-        // УБРАЛИ used - платформы теперь всегда активны для коллизии
-        this.lastCollisionTime = 0; // Время последней коллизии для предотвращения многократных прыжков
+        this.lastCollisionTime = 0;
     }
 
     // Обновление состояния платформы
     update(deltaTime) {
-        // Обновление движущихся платформ
         if (this.type === PlatformType.MOVING) {
             this.x += this.velocityX;
             
-            // Проверка границ движения
             if (Math.abs(this.x - this.startX) > this.movingRange) {
                 this.velocityX *= -1;
             }
         }
         
-        // Обновление ломающихся платформ
         if (this.type === PlatformType.BREAKING && this.breaking) {
             this.breakTimer += deltaTime;
             this.breakProgress = this.breakTimer / CONFIG.PLATFORMS.BREAKING_TIME;
             
-            // Платформа полностью разрушена
             if (this.breakProgress >= 1) {
                 return false;
             }
@@ -51,7 +44,7 @@ class Platform {
         return true;
     }
 
-    // Отрисовка платформы
+    // Отрисовка платформы - ИСПОЛЬЗУЕМ PNG
     draw(ctx, assets) {
         const alpha = this.breaking ? 1 - this.breakProgress : 1;
         
@@ -72,22 +65,23 @@ class Platform {
         }
         
         const image = assets.getImage(imageName);
-        if (image) {
-            ctx.drawImage(image, this.x, this.y);
+        
+        if (image && image.complete && image.naturalWidth !== 0) {
+            ctx.drawImage(image, this.x, this.y, this.width, this.height);
         } else {
-            // Fallback: рисуем простой прямоугольник
+            // Fallback отрисовка
             this.drawFallback(ctx);
         }
         
         ctx.restore();
         
-        // Отладочная отрисовка хитбокса (можно включить через window.DEBUG = true)
+        // Отладочная отрисовка
         if (window.DEBUG) {
             this.drawDebug(ctx);
         }
     }
 
-    // Fallback отрисовка если изображения не загружены
+    // Fallback отрисовка
     drawFallback(ctx) {
         let color;
         switch(this.type) {
@@ -104,7 +98,6 @@ class Platform {
         ctx.fillStyle = color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
-        // Рамка
         ctx.strokeStyle = this.darkenColor(color, 20);
         ctx.lineWidth = 2;
         ctx.strokeRect(this.x, this.y, this.width, this.height);
@@ -115,11 +108,6 @@ class Platform {
         ctx.strokeStyle = this.breaking ? 'red' : 'green';
         ctx.lineWidth = 1;
         ctx.strokeRect(this.x, this.y, this.width, this.height);
-        
-        // Показываем тип платформы
-        ctx.fillStyle = 'white';
-        ctx.font = '10px Arial';
-        ctx.fillText(this.type, this.x + 5, this.y + 12);
     }
 
     // Начало разрушения платформы
@@ -132,33 +120,27 @@ class Platform {
         return false;
     }
 
-    // Проверка столкновения с игроком - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // Проверка столкновения с игроком
     collidesWith(player, currentTime) {
-        // Проверяем физическое пересечение
         const isColliding = 
             player.x + player.width > this.x &&
             player.x < this.x + this.width &&
             player.y + player.height > this.y &&
-            player.y + player.height < this.y + this.height + 8 && // Небольшой запас
-            player.velocityY > 0; // Только при падении вниз
+            player.y + player.height < this.y + this.height + 8 &&
+            player.velocityY > 0;
         
         if (!isColliding) {
             return false;
         }
         
-        // Защита от многократных срабатываний коллизии
-        // Не позволяем прыгать с одной платформы чаще чем раз в 0.2 секунды
         if (currentTime - this.lastCollisionTime < 200) {
             return false;
         }
         
-        // Обновляем время последней коллизии
         this.lastCollisionTime = currentTime;
-        
         return true;
     }
 
-    // Вспомогательная функция для затемнения цвета
     darkenColor(color, percent) {
         const num = parseInt(color.replace("#", ""), 16);
         const amt = Math.round(2.55 * percent);

@@ -7,7 +7,7 @@ class Player {
             right: false
         };
         this.lastDirection = 'right';
-        this.targetX = null; // Для плавного следования за пальцем
+        this.targetX = null;
     }
 
     // Сброс состояния игрока
@@ -21,7 +21,7 @@ class Player {
         this.isJumping = true;
         this.jumpCount = 0;
         this.maxJumps = 2;
-        this.targetX = this.x; // Инициализируем целевую позицию
+        this.targetX = this.x;
     }
 
     // Обновление состояния игрока
@@ -43,20 +43,19 @@ class Player {
         
         // Проверка выхода за нижнюю границу
         if (this.y > CONFIG.CANVAS.HEIGHT + 100) {
-            return false; // Игрок упал - game over
+            return false;
         }
         
         return true;
     }
 
-    // Обработка движения - УПРОЩЕННАЯ ВЕРСИЯ для касаний
+    // Обработка движения
     handleMovement(deltaTime) {
         if (this.targetX !== null) {
             // Плавное движение к целевой позиции
             const diff = this.targetX - this.x;
-            this.velocityX = diff * 0.2; // Коэффициент плавности
+            this.velocityX = diff * 0.2;
             
-            // Ограничение максимальной скорости
             if (Math.abs(this.velocityX) > CONFIG.PLAYER.MAX_SPEED) {
                 this.velocityX = Math.sign(this.velocityX) * CONFIG.PLAYER.MAX_SPEED;
             }
@@ -73,13 +72,11 @@ class Player {
                     CONFIG.PLAYER.MAX_SPEED
                 );
             } else {
-                // Замедление
                 this.velocityX *= CONFIG.PLAYER.FRICTION;
                 if (Math.abs(this.velocityX) < 0.1) this.velocityX = 0;
             }
         }
         
-        // Применяем движение по X
         this.x += this.velocityX;
     }
 
@@ -103,10 +100,24 @@ class Player {
         }
     }
 
-    // Отрисовка игрока - УПРОЩЕННАЯ ВЕРСИЯ для гарантии отображения
+    // Отрисовка игрока - ИСПОЛЬЗУЕМ PNG
     draw(ctx, assets) {
-        // Всегда используем fallback отрисовку для гарантии
-        this.drawFallback(ctx);
+        const image = assets.getImage('player');
+        
+        if (image && image.complete && image.naturalWidth !== 0) {
+            // Отражение изображения если движется влево
+            if (this.lastDirection === 'left') {
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.drawImage(image, -this.x - this.width, this.y, this.width, this.height);
+                ctx.restore();
+            } else {
+                ctx.drawImage(image, this.x, this.y, this.width, this.height);
+            }
+        } else {
+            // Fallback отрисовка если PNG не загрузился
+            this.drawFallback(ctx);
+        }
         
         // Отладочная информация
         if (window.DEBUG) {
@@ -114,7 +125,7 @@ class Player {
         }
     }
 
-    // Fallback отрисовка - ГАРАНТИРОВАННО РАБОТАЕТ
+    // Fallback отрисовка
     drawFallback(ctx) {
         const centerX = this.x + this.width / 2;
         const centerY = this.y + this.height / 2;
@@ -138,12 +149,12 @@ class Player {
 
     // Рисование лица
     drawFace(ctx, centerX, centerY) {
-        // Глаза (белки)
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        
         // Корректировка позиции глаз в зависимости от направления
         const eyeOffset = this.lastDirection === 'left' ? -1 : 1;
+        
+        // Глаза
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
         ctx.arc(centerX - 8 * eyeOffset, centerY - 5, 5, 0, Math.PI * 2);
         ctx.arc(centerX + 8 * eyeOffset, centerY - 5, 5, 0, Math.PI * 2);
         ctx.fill();
@@ -162,7 +173,7 @@ class Player {
         ctx.arc(centerX, centerY + 5, 7, 0.2 * Math.PI, 0.8 * Math.PI);
         ctx.stroke();
         
-        // Блики в глазах
+        // Блики
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.beginPath();
         const highlightOffset = this.lastDirection === 'left' ? -0.5 : 0.5;
@@ -179,9 +190,6 @@ class Player {
         ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 25);
         ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 40);
         ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 55);
-        if (this.targetX !== null) {
-            ctx.fillText(`Target: ${Math.round(this.targetX)}`, this.x, this.y - 70);
-        }
     }
 
     // Прыжок
@@ -211,7 +219,7 @@ class Player {
 
     // Установка целевой позиции для касаний
     setTargetPosition(x) {
-        this.targetX = x - this.width / 2; // Центрируем игрока под пальцем
+        this.targetX = x - this.width / 2;
     }
 
     // Сброс целевой позиции
@@ -221,9 +229,7 @@ class Player {
 
     // Обработка наклона устройства
     handleDeviceTilt(gamma) {
-        // gamma - наклон устройства в градусах (-90 до 90)
         const deadZone = 5;
-        const maxTilt = 30;
         
         if (Math.abs(gamma) < deadZone) {
             this.input.left = false;
