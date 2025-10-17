@@ -1,4 +1,5 @@
 // Основной класс игры Doodle Jump
+// Основной класс игры Doodle Jump
 class DoodleJumpGame {
     constructor() {
         console.log('Initializing DoodleJumpGame...');
@@ -16,10 +17,15 @@ class DoodleJumpGame {
         this.highScore = parseInt(localStorage.getItem('doodleHighScore')) || 0;
         this.distance = 0;
         
+        // Управление касаниями
+        this.isTouching = false;
+        this.touchId = null;
+        
         // Время и анимация
         this.animationId = null;
         this.lastTime = 0;
         this.deltaTime = 0;
+        this.currentTime = 0;
         
         // Инициализация
         this.init();
@@ -52,7 +58,7 @@ class DoodleJumpGame {
 
     // Настройка элементов управления
     setupControls() {
-        // Клавиатура
+        // Клавиатура (резервное управление)
         document.addEventListener('keydown', (e) => {
             this.handleKeyDown(e);
         });
@@ -61,7 +67,7 @@ class DoodleJumpGame {
             this.handleKeyUp(e);
         });
         
-        // Сенсорное управление
+        // Сенсорное управление - ОСНОВНОЕ
         this.setupTouchControls();
         
         // Гироскоп (если доступен)
@@ -105,49 +111,78 @@ class DoodleJumpGame {
         }
     }
 
-    // Настройка сенсорного управления
+    // Настройка сенсорного управления - ПЕРЕРАБОТАННАЯ ВЕРСИЯ
     setupTouchControls() {
+        // Начало касания
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const touchX = e.touches[0].clientX;
-            this.handleTouch(touchX);
+            if (this.state === GameState.PLAYING && e.touches.length > 0) {
+                this.isTouching = true;
+                this.touchId = e.touches[0].identifier;
+                this.handleTouch(e.touches[0]);
+            }
         });
         
+        // Движение пальца
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            const touchX = e.touches[0].clientX;
-            this.handleTouch(touchX);
+            if (this.state === GameState.PLAYING && this.isTouching) {
+                // Находим наш касание по идентификатору
+                for (let touch of e.touches) {
+                    if (touch.identifier === this.touchId) {
+                        this.handleTouch(touch);
+                        break;
+                    }
+                }
+            }
         });
         
-        this.canvas.addEventListener('touchend', () => {
-            this.player.setInput('left', false);
-            this.player.setInput('right', false);
+        // Конец касания
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (this.state === GameState.PLAYING) {
+                this.isTouching = false;
+                this.touchId = null;
+                this.player.clearTargetPosition();
+            }
+        });
+        
+        // Отмена касания (например, вызов уведомления)
+        this.canvas.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            if (this.state === GameState.PLAYING) {
+                this.isTouching = false;
+                this.touchId = null;
+                this.player.clearTargetPosition();
+            }
+        });
+        
+        // Также обрабатываем клики для меню на мобильных устройствах
+        this.canvas.addEventListener('click', (e) => {
+            if (this.state === GameState.MENU) {
+                this.startGame();
+            }
         });
     }
 
-    // Обработка касаний
-    handleTouch(touchX) {
+    // Обработка касания - ПЕРЕРАБОТАННАЯ ВЕРСИЯ
+    handleTouch(touch) {
         const canvasRect = this.canvas.getBoundingClientRect();
-        const canvasX = touchX - canvasRect.left;
-        const centerX = this.canvas.width / 2;
+        const touchX = touch.clientX - canvasRect.left;
         
-        if (canvasX < centerX - 20) {
-            this.player.setInput('left', true);
-            this.player.setInput('right', false);
-        } else if (canvasX > centerX + 20) {
-            this.player.setInput('left', false);
-            this.player.setInput('right', true);
-        } else {
-            this.player.setInput('left', false);
-            this.player.setInput('right', false);
-        }
+        // Ограничиваем позицию в пределах canvas
+        const clampedX = Math.max(0, Math.min(touchX, this.canvas.width));
+        
+        // Устанавливаем целевую позицию для игрока
+        this.player.setTargetPosition(clampedX);
     }
 
     // Настройка гироскопа
     setupGyroControls() {
         if (window.DeviceOrientationEvent) {
             window.addEventListener('deviceorientation', (e) => {
-                if (this.state === GameState.PLAYING) {
+                if (this.state === GameState.PLAYING && !this.isTouching) {
+                    // Используем гироскоп только если нет активного касания
                     this.player.handleDeviceTilt(e.gamma);
                 }
             });
@@ -159,11 +194,38 @@ class DoodleJumpGame {
         document.getElementById('startButton').addEventListener('click', () => this.startGame());
         document.getElementById('restartButton').addEventListener('click', () => this.restartGame());
         document.getElementById('shareButton').addEventListener('click', () => this.shareScore());
+        
+        // Также добавляем touch события для кнопок для лучшей мобильной поддержки
+        document.getElementById('startButton').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.startGame();
+        });
+        
+        document.getElementById('restartButton').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.restartGame();
+        });
+        
+        document.getElementById('shareButton').addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.shareScore();
+        });
     }
 
     // Настройка UI
     setupUI() {
         this.updateHighScoreDisplay();
+        
+        // Добавляем инструкции для мобильных устройств
+        this.addMobileInstructions();
+    }
+
+    // Добавление инструкций для мобильных устройств
+    addMobileInstructions() {
+        const controlsInfo = document.querySelector('.controls');
+        if (controlsInfo) {
+            controlsInfo.innerHTML = '<p><strong>Controls:</strong><br>Touch and drag to move</p>';
+        }
     }
 
     // Начало игры
@@ -173,6 +235,8 @@ class DoodleJumpGame {
         this.distance = 0;
         this.player.reset();
         this.platformManager.reset();
+        this.isTouching = false;
+        this.touchId = null;
         
         // Обновление интерфейса
         document.getElementById('startScreen').style.display = 'none';
@@ -199,6 +263,9 @@ class DoodleJumpGame {
     // Конец игры
     gameOver() {
         this.state = GameState.GAME_OVER;
+        this.isTouching = false;
+        this.touchId = null;
+        this.player.clearTargetPosition();
         
         // Обновление рекорда
         if (this.score > this.highScore) {
@@ -251,9 +318,11 @@ class DoodleJumpGame {
 
     // Обновление игровой логики
     update(currentTime) {
+        this.currentTime = currentTime;
+        
         // Расчет времени между кадрами
         if (this.lastTime === 0) this.lastTime = currentTime;
-        this.deltaTime = (currentTime - this.lastTime) / 1000; // в секундах
+        this.deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
         
         if (this.state !== GameState.PLAYING) return;
@@ -266,7 +335,7 @@ class DoodleJumpGame {
         }
         
         // Проверка столкновений с платформами
-        if (this.platformManager.checkCollisions(this.player)) {
+        if (this.platformManager.checkCollisions(this.player, currentTime)) {
             this.player.onPlatformHit();
         }
         
@@ -321,14 +390,25 @@ class DoodleJumpGame {
 
     // Отрисовка фона
     drawBackground() {
-        // Дополнительные элементы фона могут быть добавлены здесь
-        // Например, параллакс-эффект с облаками
+        // Можно добавить параллакс-эффект или другие элементы фона
     }
 
     // Отрисовка UI
     drawUI() {
-        // Основной UI уже отрисовывается HTML-элементами
-        // Здесь можно добавить внутриигровые элементы UI
+        // Отладочная информация
+        if (window.DEBUG) {
+            this.drawDebugInfo();
+        }
+    }
+
+    // Отладочная информация
+    drawDebugInfo() {
+        this.ctx.fillStyle = 'red';
+        this.ctx.font = '12px Arial';
+        this.ctx.fillText(`Touch: ${this.isTouching}`, 10, 20);
+        this.ctx.fillText(`State: ${this.state}`, 10, 35);
+        this.ctx.fillText(`Player X: ${Math.round(this.player.x)}`, 10, 50);
+        this.ctx.fillText(`Player Y: ${Math.round(this.player.y)}`, 10, 65);
     }
 
     // Основной игровой цикл
@@ -365,7 +445,6 @@ class DoodleJumpGame {
             alert('Score copied to clipboard! 📋');
         } catch (error) {
             console.log('Clipboard copy failed:', error);
-            // Fallback для старых браузеров
             const textArea = document.createElement('textarea');
             textArea.value = text;
             document.body.appendChild(textArea);

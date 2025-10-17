@@ -6,15 +6,15 @@ const CONFIG = {
         HEIGHT: 600
     },
     
-    // Настройки игрока
+    // Настройки игрока - УМЕНЬШЕНА СКОРОСТЬ
     PLAYER: {
         WIDTH: 40,
         HEIGHT: 40,
         JUMP_FORCE: -12,
         GRAVITY: 0.5,
-        MAX_SPEED: 8,
-        ACCELERATION: 0.5,
-        FRICTION: 0.9
+        MAX_SPEED: 4, // Было 8, теперь 4
+        ACCELERATION: 0.3, // Было 0.5, теперь 0.3
+        FRICTION: 0.85 // Было 0.9, теперь 0.85 (меньше скольжения)
     },
     
     // Настройки платформ
@@ -24,8 +24,8 @@ const CONFIG = {
         MIN_GAP: 70,
         MAX_GAP: 120,
         START_COUNT: 10,
-        MOVE_SPEED: 2,
-        BREAKING_TIME: 0.5 // секунды до разрушения
+        MOVE_SPEED: 1.5, // Немного уменьшена скорость движущихся платформ
+        BREAKING_TIME: 0.5
     },
     
     // Настройки игры
@@ -54,9 +54,9 @@ const CONFIG = {
     
     // Вероятности появления платформ
     PLATFORM_PROBABILITIES: {
-        NORMAL: 0.7,    // 70%
-        BREAKING: 0.2,  // 20%
-        MOVING: 0.1     // 10%
+        NORMAL: 0.7,
+        BREAKING: 0.2,
+        MOVING: 0.1
     }
 };
 

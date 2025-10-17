@@ -21,7 +21,8 @@ class Platform {
             this.breakTimer = 0;
         }
         
-        this.used = false; // Была ли использована платформа для прыжка
+        // УБРАЛИ used - платформы теперь всегда активны для коллизии
+        this.lastCollisionTime = 0; // Время последней коллизии для предотвращения многократных прыжков
     }
 
     // Обновление состояния платформы
@@ -79,6 +80,11 @@ class Platform {
         }
         
         ctx.restore();
+        
+        // Отладочная отрисовка хитбокса (можно включить через window.DEBUG = true)
+        if (window.DEBUG) {
+            this.drawDebug(ctx);
+        }
     }
 
     // Fallback отрисовка если изображения не загружены
@@ -104,6 +110,18 @@ class Platform {
         ctx.strokeRect(this.x, this.y, this.width, this.height);
     }
 
+    // Отладочная отрисовка
+    drawDebug(ctx) {
+        ctx.strokeStyle = this.breaking ? 'red' : 'green';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        
+        // Показываем тип платформы
+        ctx.fillStyle = 'white';
+        ctx.font = '10px Arial';
+        ctx.fillText(this.type, this.x + 5, this.y + 12);
+    }
+
     // Начало разрушения платформы
     startBreaking() {
         if (this.type === PlatformType.BREAKING && !this.breaking) {
@@ -114,14 +132,30 @@ class Platform {
         return false;
     }
 
-    // Проверка столкновения с игроком
-    collidesWith(player) {
-        return player.x + player.width > this.x &&
-               player.x < this.x + this.width &&
-               player.y + player.height > this.y &&
-               player.y + player.height < this.y + this.height + 5 &&
-               player.velocityY > 0 && // Только при падении вниз
-               !this.used; // Платформа еще не использована
+    // Проверка столкновения с игроком - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    collidesWith(player, currentTime) {
+        // Проверяем физическое пересечение
+        const isColliding = 
+            player.x + player.width > this.x &&
+            player.x < this.x + this.width &&
+            player.y + player.height > this.y &&
+            player.y + player.height < this.y + this.height + 8 && // Небольшой запас
+            player.velocityY > 0; // Только при падении вниз
+        
+        if (!isColliding) {
+            return false;
+        }
+        
+        // Защита от многократных срабатываний коллизии
+        // Не позволяем прыгать с одной платформы чаще чем раз в 0.2 секунды
+        if (currentTime - this.lastCollisionTime < 200) {
+            return false;
+        }
+        
+        // Обновляем время последней коллизии
+        this.lastCollisionTime = currentTime;
+        
+        return true;
     }
 
     // Вспомогательная функция для затемнения цвета
@@ -260,13 +294,10 @@ class PlatformManager {
         });
     }
 
-    // Проверка столкновений игрока с платформами
-    checkCollisions(player) {
+    // Проверка столкновений игрока с платформами - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    checkCollisions(player, currentTime) {
         for (const platform of this.platforms) {
-            if (platform.collidesWith(player)) {
-                // Помечаем платформу как использованную
-                platform.used = true;
-                
+            if (platform.collidesWith(player, currentTime)) {
                 // Запускаем разрушение если это ломающаяся платформа
                 if (platform.type === PlatformType.BREAKING) {
                     platform.startBreaking();

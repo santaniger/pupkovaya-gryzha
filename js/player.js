@@ -6,7 +6,8 @@ class Player {
             left: false,
             right: false
         };
-        this.lastDirection = 'right'; // Для анимации
+        this.lastDirection = 'right';
+        this.targetX = null; // Для плавного следования за пальцем
     }
 
     // Сброс состояния игрока
@@ -19,7 +20,8 @@ class Player {
         this.velocityY = 0;
         this.isJumping = true;
         this.jumpCount = 0;
-        this.maxJumps = 2; // Двойной прыжок
+        this.maxJumps = 2;
+        this.targetX = this.x; // Инициализируем целевую позицию
     }
 
     // Обновление состояния игрока
@@ -28,10 +30,9 @@ class Player {
         this.velocityY += CONFIG.PLAYER.GRAVITY;
         
         // Обработка ввода для движения
-        this.handleMovement();
+        this.handleMovement(deltaTime);
         
-        // Обновление позиции
-        this.x += this.velocityX;
+        // Обновление позиции по Y
         this.y += this.velocityY;
         
         // Проверка границ экрана (телепортация)
@@ -48,102 +49,110 @@ class Player {
         return true;
     }
 
-    // Обработка движения
-    handleMovement() {
-        if (this.input.left) {
-            this.velocityX = Math.max(
-                this.velocityX - CONFIG.PLAYER.ACCELERATION, 
-                -CONFIG.PLAYER.MAX_SPEED
-            );
-        } else if (this.input.right) {
-            this.velocityX = Math.min(
-                this.velocityX + CONFIG.PLAYER.ACCELERATION, 
-                CONFIG.PLAYER.MAX_SPEED
-            );
+    // Обработка движения - УПРОЩЕННАЯ ВЕРСИЯ для касаний
+    handleMovement(deltaTime) {
+        if (this.targetX !== null) {
+            // Плавное движение к целевой позиции
+            const diff = this.targetX - this.x;
+            this.velocityX = diff * 0.2; // Коэффициент плавности
+            
+            // Ограничение максимальной скорости
+            if (Math.abs(this.velocityX) > CONFIG.PLAYER.MAX_SPEED) {
+                this.velocityX = Math.sign(this.velocityX) * CONFIG.PLAYER.MAX_SPEED;
+            }
         } else {
-            // Замедление при отсутствии ввода
-            this.velocityX *= CONFIG.PLAYER.FRICTION;
-            if (Math.abs(this.velocityX) < 0.5) this.velocityX = 0;
+            // Клавиатурное управление (резервное)
+            if (this.input.left) {
+                this.velocityX = Math.max(
+                    this.velocityX - CONFIG.PLAYER.ACCELERATION, 
+                    -CONFIG.PLAYER.MAX_SPEED
+                );
+            } else if (this.input.right) {
+                this.velocityX = Math.min(
+                    this.velocityX + CONFIG.PLAYER.ACCELERATION, 
+                    CONFIG.PLAYER.MAX_SPEED
+                );
+            } else {
+                // Замедление
+                this.velocityX *= CONFIG.PLAYER.FRICTION;
+                if (Math.abs(this.velocityX) < 0.1) this.velocityX = 0;
+            }
         }
+        
+        // Применяем движение по X
+        this.x += this.velocityX;
     }
 
     // Обработка границ экрана
     handleScreenBounds() {
         if (this.x < -this.width) {
             this.x = CONFIG.CANVAS.WIDTH;
+            if (this.targetX !== null) this.targetX = this.x;
         } else if (this.x > CONFIG.CANVAS.WIDTH) {
             this.x = -this.width;
+            if (this.targetX !== null) this.targetX = this.x;
         }
     }
 
     // Обновление направления для анимации
     updateDirection() {
-        if (this.velocityX < -0.5) {
+        if (this.velocityX < -0.1) {
             this.lastDirection = 'left';
-        } else if (this.velocityX > 0.5) {
+        } else if (this.velocityX > 0.1) {
             this.lastDirection = 'right';
         }
     }
 
-    // Отрисовка игрока
+    // Отрисовка игрока - УПРОЩЕННАЯ ВЕРСИЯ для гарантии отображения
     draw(ctx, assets) {
-        const image = assets.getImage('player');
-        if (image) {
-            // Отражение изображения если движется влево
-            if (this.lastDirection === 'left') {
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.drawImage(image, -this.x - this.width, this.y);
-                ctx.restore();
-            } else {
-                ctx.drawImage(image, this.x, this.y);
-            }
-        } else {
-            // Fallback отрисовка
-            this.drawFallback(ctx);
-        }
+        // Всегда используем fallback отрисовку для гарантии
+        this.drawFallback(ctx);
         
-        // Отладочная информация (можно включить через window.DEBUG = true)
+        // Отладочная информация
         if (window.DEBUG) {
             this.drawDebugInfo(ctx);
         }
     }
 
-    // Fallback отрисовка
+    // Fallback отрисовка - ГАРАНТИРОВАННО РАБОТАЕТ
     drawFallback(ctx) {
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        const radius = this.width / 2 - 2;
+        
         // Тень
-        ctx.fillStyle = CONFIG.COLORS.PLAYER_SHADOW;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(this.x + this.width/2 + 2, this.y + this.height/2 + 2, this.width/2 - 2, 0, Math.PI * 2);
+        ctx.arc(centerX + 2, centerY + 2, radius, 0, Math.PI * 2);
         ctx.fill();
         
         // Основное тело
         ctx.fillStyle = CONFIG.COLORS.PLAYER;
         ctx.beginPath();
-        ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2 - 2, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.fill();
         
         // Детали лица
-        this.drawFace(ctx);
+        this.drawFace(ctx, centerX, centerY);
     }
 
     // Рисование лица
-    drawFace(ctx) {
-        const centerX = this.x + this.width/2;
-        const centerY = this.y + this.height/2;
-        
-        // Глаза
+    drawFace(ctx, centerX, centerY) {
+        // Глаза (белки)
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.arc(centerX - 8, centerY - 5, 5, 0, Math.PI * 2);
-        ctx.arc(centerX + 8, centerY - 5, 5, 0, Math.PI * 2);
+        
+        // Корректировка позиции глаз в зависимости от направления
+        const eyeOffset = this.lastDirection === 'left' ? -1 : 1;
+        ctx.arc(centerX - 8 * eyeOffset, centerY - 5, 5, 0, Math.PI * 2);
+        ctx.arc(centerX + 8 * eyeOffset, centerY - 5, 5, 0, Math.PI * 2);
         ctx.fill();
         
         // Зрачки
         ctx.fillStyle = CONFIG.COLORS.TEXT_PRIMARY;
         ctx.beginPath();
-        ctx.arc(centerX - 8, centerY - 5, 2.5, 0, Math.PI * 2);
-        ctx.arc(centerX + 8, centerY - 5, 2.5, 0, Math.PI * 2);
+        ctx.arc(centerX - 8 * eyeOffset, centerY - 5, 2.5, 0, Math.PI * 2);
+        ctx.arc(centerX + 8 * eyeOffset, centerY - 5, 2.5, 0, Math.PI * 2);
         ctx.fill();
         
         // Улыбка
@@ -153,11 +162,12 @@ class Player {
         ctx.arc(centerX, centerY + 5, 7, 0.2 * Math.PI, 0.8 * Math.PI);
         ctx.stroke();
         
-        // Блики
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        // Блики в глазах
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.beginPath();
-        ctx.arc(centerX - 9, centerY - 6, 1, 0, Math.PI * 2);
-        ctx.arc(centerX + 7, centerY - 6, 1, 0, Math.PI * 2);
+        const highlightOffset = this.lastDirection === 'left' ? -0.5 : 0.5;
+        ctx.arc(centerX - 9 * eyeOffset + highlightOffset, centerY - 6, 1.5, 0, Math.PI * 2);
+        ctx.arc(centerX + 7 * eyeOffset + highlightOffset, centerY - 6, 1.5, 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -169,6 +179,9 @@ class Player {
         ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 25);
         ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 40);
         ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 55);
+        if (this.targetX !== null) {
+            ctx.fillText(`Target: ${Math.round(this.targetX)}`, this.x, this.y - 70);
+        }
     }
 
     // Прыжок
@@ -189,18 +202,28 @@ class Player {
         this.jump();
     }
 
-    // Установка ввода
+    // Установка ввода для клавиатуры
     setInput(direction, active) {
         if (this.input.hasOwnProperty(direction)) {
             this.input[direction] = active;
         }
     }
 
+    // Установка целевой позиции для касаний
+    setTargetPosition(x) {
+        this.targetX = x - this.width / 2; // Центрируем игрока под пальцем
+    }
+
+    // Сброс целевой позиции
+    clearTargetPosition() {
+        this.targetX = null;
+    }
+
     // Обработка наклона устройства
     handleDeviceTilt(gamma) {
         // gamma - наклон устройства в градусах (-90 до 90)
-        const deadZone = 5; // Мертвая зона
-        const maxTilt = 30; // Максимальный наклон
+        const deadZone = 5;
+        const maxTilt = 30;
         
         if (Math.abs(gamma) < deadZone) {
             this.input.left = false;
@@ -219,7 +242,7 @@ class Player {
         return this.y;
     }
 
-    // Сброс счетчика прыжков (для двойного прыжка)
+    // Сброс счетчика прыжков
     resetJumps() {
         this.jumpCount = 0;
     }
