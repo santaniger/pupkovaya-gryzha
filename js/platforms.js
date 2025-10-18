@@ -44,7 +44,7 @@ class Platform {
         return true;
     }
 
-    // Отрисовка платформы - ИСПОЛЬЗУЕМ PNG
+    // Отрисовка платформы
     draw(ctx, assets) {
         const alpha = this.breaking ? 1 - this.breakProgress : 1;
         
@@ -108,6 +108,14 @@ class Platform {
         ctx.strokeStyle = this.breaking ? 'red' : 'green';
         ctx.lineWidth = 1;
         ctx.strokeRect(this.x, this.y, this.width, this.height);
+        
+        // Показываем время последней коллизии
+        const timeSinceCollision = Date.now() - this.lastCollisionTime;
+        if (timeSinceCollision < 1000) {
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText(`${timeSinceCollision}ms`, this.x + 5, this.y + 12);
+        }
     }
 
     // Начало разрушения платформы
@@ -120,20 +128,22 @@ class Platform {
         return false;
     }
 
-    // Проверка столкновения с игроком
+    // В методе collidesWith улучшаем защиту
     collidesWith(player, currentTime) {
-        const isColliding = 
-            player.x + player.width > this.x &&
-            player.x < this.x + this.width &&
-            player.y + player.height > this.y &&
-            player.y + player.height < this.y + this.height + 8 &&
-            player.velocityY > 0;
-        
-        if (!isColliding) {
+        // УВЕЛИЧИВАЕМ защитное время до 400 мс
+        if (currentTime - this.lastCollisionTime < 400) {
             return false;
         }
         
-        if (currentTime - this.lastCollisionTime < 200) {
+        // Более строгая проверка коллизии
+        const isColliding = 
+            player.x + player.width > this.x + 5 &&
+            player.x < this.x + this.width - 5 &&
+            player.y + player.height > this.y &&
+            player.y + player.height < this.y + this.height + 8 &&
+            player.velocityY > 0.5; // Только при заметном падении
+        
+        if (!isColliding) {
             return false;
         }
         
@@ -276,8 +286,10 @@ class PlatformManager {
         });
     }
 
-    // Проверка столкновений игрока с платформами - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // Проверка столкновений игрока с платформами
     checkCollisions(player, currentTime) {
+        let collisionOccurred = false;
+        
         for (const platform of this.platforms) {
             if (platform.collidesWith(player, currentTime)) {
                 // Запускаем разрушение если это ломающаяся платформа
@@ -285,10 +297,12 @@ class PlatformManager {
                     platform.startBreaking();
                 }
                 
-                return true;
+                collisionOccurred = true;
+                break; // Останавливаемся после первой коллизии
             }
         }
-        return false;
+        
+        return collisionOccurred;
     }
 
     // Сброс менеджера платформ

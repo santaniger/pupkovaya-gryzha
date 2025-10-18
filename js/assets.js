@@ -10,7 +10,11 @@ class AssetManager {
     }
 
     // Загрузка всех изображений
-    loadAllAssets() {
+    async loadAllAssets() {
+        // Сначала создаем спрайты через Data URLs (гарантированно работают)
+        this.createSprites();
+        
+        // Затем пробуем загрузить внешние PNG (опционально)
         const imageSources = {
             player: 'assets/images/player.png',
             background: 'assets/images/background.png',
@@ -20,179 +24,266 @@ class AssetManager {
         };
 
         this.totalAssets = Object.keys(imageSources).length;
-        this.loadedAssets = 0;
         
-        return new Promise((resolve, reject) => {
-            let assetsLoaded = 0;
-            
-            const checkAllLoaded = () => {
-                if (assetsLoaded === this.totalAssets) {
-                    this.loaded = true;
-                    console.log('All assets loaded successfully');
-                    resolve();
-                }
-            };
-            
-            Object.entries(imageSources).forEach(([name, src]) => {
-                this.loadImage(name, src)
-                    .then(() => {
-                        assetsLoaded++;
-                        this.loadedAssets = assetsLoaded;
-                        this.loadProgress = (assetsLoaded / this.totalAssets) * 100;
-                        console.log(`Loaded: ${src}`);
-                        checkAllLoaded();
-                    })
-                    .catch(error => {
-                        console.error(`Failed to load: ${src}`, error);
-                        // Создаем fallback изображение если загрузка не удалась
-                        this.createFallbackImage(name);
-                        assetsLoaded++;
-                        this.loadedAssets = assetsLoaded;
-                        this.loadProgress = (assetsLoaded / this.totalAssets) * 100;
-                        checkAllLoaded();
-                    });
-            });
-        });
+        try {
+            await this.loadExternalImages(imageSources);
+        } catch (error) {
+            console.log('Using generated sprites instead of external images');
+        }
+        
+        this.loaded = true;
+        console.log('All assets loaded successfully');
+    }
+
+    // Создание спрайтов через Data URLs
+    createSprites() {
+        console.log('Creating generated sprites...');
+        
+        this.images['player'] = this.createPlayerSprite();
+        this.images['background'] = this.createBackgroundSprite();
+        this.images['platformNormal'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_NORMAL, 'normal');
+        this.images['platformBreaking'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_BREAKING, 'breaking');
+        this.images['platformMoving'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_MOVING, 'moving');
+    }
+
+    // Загрузка внешних изображений
+    async loadExternalImages(imageSources) {
+        const loadPromises = Object.entries(imageSources).map(([name, src]) => 
+            this.loadImage(name, src).catch(error => {
+                console.warn(`Failed to load ${src}, using generated sprite`);
+                // Если загрузка не удалась, используем уже созданный спрайт
+            })
+        );
+
+        await Promise.allSettled(loadPromises);
     }
 
     // Загрузка одного изображения
     loadImage(name, src) {
         return new Promise((resolve, reject) => {
+            // Добавляем timestamp для избежания кэширования
+            const timestamp = Date.now();
+            const url = `${src}?v=${timestamp}`;
+            
             const img = new Image();
             img.onload = () => {
+                console.log(`Successfully loaded: ${src}`);
                 this.images[name] = img;
                 resolve();
             };
             img.onerror = () => {
-                console.warn(`Failed to load image: ${src}`);
+                console.warn(`Failed to load: ${src}`);
                 reject(new Error(`Failed to load: ${src}`));
             };
-            img.src = src;
+            img.src = url;
+            
+            // Таймаут для загрузки
+            setTimeout(() => {
+                if (!img.complete) {
+                    reject(new Error(`Timeout loading: ${src}`));
+                }
+            }, 2000);
         });
     }
 
-    // Создание fallback изображения если PNG не загрузился
-    createFallbackImage(name) {
-        console.log(`Creating fallback image for: ${name}`);
-        
+    // Создание спрайта игрока
+    createPlayerSprite() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        const size = 40;
+        canvas.width = size;
+        canvas.height = size;
         
-        switch(name) {
-            case 'player':
-                canvas.width = 40;
-                canvas.height = 40;
-                this.createPlayerFallback(ctx, 40);
-                break;
-                
-            case 'background':
-                canvas.width = CONFIG.CANVAS.WIDTH;
-                canvas.height = CONFIG.CANVAS.HEIGHT;
-                this.createBackgroundFallback(ctx);
-                break;
-                
-            case 'platformNormal':
-                canvas.width = 70;
-                canvas.height = 16;
-                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_NORMAL, 'normal');
-                break;
-                
-            case 'platformBreaking':
-                canvas.width = 70;
-                canvas.height = 16;
-                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_BREAKING, 'breaking');
-                break;
-                
-            case 'platformMoving':
-                canvas.width = 70;
-                canvas.height = 16;
-                this.createPlatformFallback(ctx, 70, 16, CONFIG.COLORS.PLATFORM_MOVING, 'moving');
-                break;
-        }
+        // Прозрачный фон
+        ctx.clearRect(0, 0, size, size);
         
-        this.images[name] = canvas;
-    }
-
-    // Fallback для игрока
-    createPlayerFallback(ctx, size) {
         // Тень
-        ctx.fillStyle = CONFIG.COLORS.PLAYER_SHADOW;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(size/2 + 2, size/2 + 2, size/2 - 2, 0, Math.PI * 2);
+        ctx.arc(size/2 + 2, size/2 + 2, size/2 - 4, 0, Math.PI * 2);
         ctx.fill();
         
         // Основное тело
-        ctx.fillStyle = CONFIG.COLORS.PLAYER;
+        const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        gradient.addColorStop(0, '#FF8A8A');
+        gradient.addColorStop(1, '#FF6B6B');
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(size/2, size/2, size/2 - 2, 0, Math.PI * 2);
+        ctx.arc(size/2, size/2, size/2 - 4, 0, Math.PI * 2);
         ctx.fill();
         
-        // Детали лица
-        this.drawPlayerFace(ctx, size);
+        // Контур
+        ctx.strokeStyle = '#E74C3C';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2 - 4, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Глаза
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(size/2 - 8, size/2 - 5, 6, 0, Math.PI * 2);
+        ctx.arc(size/2 + 8, size/2 - 5, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Зрачки
+        ctx.fillStyle = '#2C3E50';
+        ctx.beginPath();
+        ctx.arc(size/2 - 8, size/2 - 5, 3, 0, Math.PI * 2);
+        ctx.arc(size/2 + 8, size/2 - 5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Улыбка
+        ctx.strokeStyle = '#2C3E50';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(size/2, size/2 + 5, 8, 0.2 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+        
+        // Блики
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(size/2 - 10, size/2 - 7, 2, 0, Math.PI * 2);
+        ctx.arc(size/2 + 6, size/2 - 7, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        return canvas;
     }
 
-    // Fallback для фона
-    createBackgroundFallback(ctx) {
+    // Создание спрайта фона
+    createBackgroundSprite() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = CONFIG.CANVAS.WIDTH;
+        canvas.height = CONFIG.CANVAS.HEIGHT;
+        
+        // Градиентный фон
         const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS.HEIGHT);
-        gradient.addColorStop(0, CONFIG.COLORS.BACKGROUND_TOP);
-        gradient.addColorStop(1, CONFIG.COLORS.BACKGROUND_BOTTOM);
+        gradient.addColorStop(0, '#87CEEB');
+        gradient.addColorStop(0.7, '#98D8F0');
+        gradient.addColorStop(1, '#E0F7FA');
         
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, CONFIG.CANVAS.WIDTH, CONFIG.CANVAS.HEIGHT);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         // Облака
-        this.drawClouds(ctx);
+        this.drawDetailedClouds(ctx);
+        
+        return canvas;
     }
 
-    // Fallback для платформ
-    createPlatformFallback(ctx, width, height, color, type) {
-        // Тень
-        ctx.fillStyle = this.darkenColor(color, 20);
-        ctx.fillRect(2, 2, width, height);
+    // Рисование детализированных облаков
+    drawDetailedClouds(ctx) {
+        const clouds = [
+            { x: 50, y: 80, size: 45 },
+            { x: 150, y: 120, size: 65 },
+            { x: 280, y: 70, size: 55 },
+            { x: 200, y: 200, size: 50 },
+            { x: 80, y: 250, size: 60 },
+            { x: 300, y: 300, size: 40 },
+            { x: 120, y: 350, size: 55 },
+            { x: 250, y: 400, size: 45 }
+        ];
         
-        // Основная платформа
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        clouds.forEach(cloud => {
+            this.drawFluffyCloud(ctx, cloud.x, cloud.y, cloud.size);
+        });
+    }
+
+    // Рисование пушистого облака
+    drawFluffyCloud(ctx, x, y, size) {
+        ctx.beginPath();
+        
+        // Основные части облака
+        ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.25, y - size * 0.15, size * 0.35, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.5, y, size * 0.4, 0, Math.PI * 2);
+        ctx.arc(x + size * 0.3, y + size * 0.2, size * 0.3, 0, Math.PI * 2);
+        ctx.arc(x - size * 0.1, y + size * 0.15, size * 0.25, 0, Math.PI * 2);
+        
+        ctx.fill();
+        
+        // Легкая тень для объема
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.arc(x + size * 0.2, y + size * 0.1, size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Создание спрайта платформы
+    createPlatformSprite(color, type) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = 70;
+        const height = 20;
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Прозрачный фон
+        ctx.clearRect(0, 0, width, height);
+        
+        // Тень
+        ctx.fillStyle = this.darkenColor(color, 30);
+        ctx.fillRect(3, 3, width, height);
+        
+        // Основная платформа с градиентом
         const gradient = ctx.createLinearGradient(0, 0, width, 0);
-        gradient.addColorStop(0, this.lightenColor(color, 10));
+        gradient.addColorStop(0, this.lightenColor(color, 20));
         gradient.addColorStop(0.5, color);
-        gradient.addColorStop(1, this.darkenColor(color, 10));
+        gradient.addColorStop(1, this.darkenColor(color, 15));
         
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height - 2);
+        ctx.fillRect(0, 0, width, height - 3);
         
         // Верхняя грань
-        ctx.fillStyle = this.lightenColor(color, 20);
-        ctx.fillRect(0, 0, width, 3);
+        ctx.fillStyle = this.lightenColor(color, 30);
+        ctx.fillRect(0, 0, width, 4);
         
-        // Текстура для разных типов платформ
-        this.drawPlatformTexture(ctx, width, height, type);
+        // Текстура в зависимости от типа
+        this.drawPlatformTexture(ctx, width, height, type, color);
+        
+        // Контур
+        ctx.strokeStyle = this.darkenColor(color, 25);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, width - 2, height - 2);
+        
+        return canvas;
     }
 
     // Рисование текстуры платформы
-    drawPlatformTexture(ctx, width, height, type) {
-        ctx.strokeStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_SHADOW, 10);
+    drawPlatformTexture(ctx, width, height, type, color) {
+        ctx.strokeStyle = this.darkenColor(color, 15);
         ctx.lineWidth = 1;
+        ctx.fillStyle = this.darkenColor(color, 20);
         
         switch(type) {
             case 'breaking':
-                // Пунктирная текстура для ломающейся платформы
-                ctx.setLineDash([3, 2]);
-                ctx.strokeRect(3, 3, width - 6, height - 6);
+                // Трещины для ломающейся платформы
+                ctx.setLineDash([2, 3]);
+                ctx.strokeRect(8, 5, width - 16, height - 10);
+                ctx.beginPath();
+                ctx.moveTo(15, 8);
+                ctx.lineTo(25, 12);
+                ctx.moveTo(45, 6);
+                ctx.lineTo(55, 14);
+                ctx.stroke();
                 ctx.setLineDash([]);
                 break;
                 
             case 'moving':
                 // Стрелки для движущейся платформы
-                ctx.fillStyle = this.darkenColor(CONFIG.COLORS.PLATFORM_MOVING, 20);
-                this.drawArrow(ctx, width * 0.3, height/2, 4, true);
-                this.drawArrow(ctx, width * 0.7, height/2, 4, false);
+                this.drawArrow(ctx, width * 0.25, height/2, 4, true);
+                this.drawArrow(ctx, width * 0.5, height/2, 4, true);
+                this.drawArrow(ctx, width * 0.75, height/2, 4, true);
                 break;
                 
             default:
-                // Линии для обычной платформы
-                for (let i = 5; i < width; i += 10) {
+                // Текстура дерева для обычной платформы
+                for (let i = 8; i < width - 8; i += 6) {
                     ctx.beginPath();
-                    ctx.moveTo(i, 4);
-                    ctx.lineTo(i, height - 4);
+                    ctx.moveTo(i, 5);
+                    ctx.lineTo(i, height - 5);
                     ctx.stroke();
                 }
         }
@@ -210,64 +301,6 @@ class AssetManager {
             ctx.lineTo(x + size, y);
             ctx.lineTo(x - size, y + size);
         }
-        ctx.fill();
-    }
-
-    // Рисование лица игрока
-    drawPlayerFace(ctx, size) {
-        // Глаза (белки)
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(size/2 - 8, size/2 - 5, 5, 0, Math.PI * 2);
-        ctx.arc(size/2 + 8, size/2 - 5, 5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Зрачки
-        ctx.fillStyle = CONFIG.COLORS.TEXT_PRIMARY;
-        ctx.beginPath();
-        ctx.arc(size/2 - 8, size/2 - 5, 2.5, 0, Math.PI * 2);
-        ctx.arc(size/2 + 8, size/2 - 5, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Улыбка
-        ctx.strokeStyle = CONFIG.COLORS.TEXT_PRIMARY;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(size/2, size/2 + 5, 7, 0.2 * Math.PI, 0.8 * Math.PI);
-        ctx.stroke();
-        
-        // Блики в глазах
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(size/2 - 9, size/2 - 6, 1, 0, Math.PI * 2);
-        ctx.arc(size/2 + 7, size/2 - 6, 1, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Рисование облаков на фоне
-    drawClouds(ctx) {
-        const clouds = [
-            { x: 50, y: 80, size: 40 },
-            { x: 150, y: 120, size: 60 },
-            { x: 280, y: 70, size: 50 },
-            { x: 200, y: 200, size: 45 },
-            { x: 80, y: 250, size: 55 },
-            { x: 300, y: 300, size: 35 }
-        ];
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        clouds.forEach(cloud => {
-            this.drawCloud(ctx, cloud.x, cloud.y, cloud.size);
-        });
-    }
-
-    // Рисование одного облака
-    drawCloud(ctx, x, y, size) {
-        ctx.beginPath();
-        ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
-        ctx.arc(x + size * 0.3, y - size * 0.2, size * 0.4, 0, Math.PI * 2);
-        ctx.arc(x + size * 0.6, y, size * 0.5, 0, Math.PI * 2);
-        ctx.arc(x + size * 0.3, y + size * 0.2, size * 0.4, 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -294,8 +327,6 @@ class AssetManager {
     getImage(name) {
         if (!this.images[name]) {
             console.warn(`Image not found: ${name}`);
-            // Создаем fallback на лету
-            this.createFallbackImage(name);
         }
         return this.images[name];
     }

@@ -20,14 +20,23 @@ class Player {
         this.velocityY = 0;
         this.isJumping = true;
         this.jumpCount = 0;
-        this.maxJumps = 2;
+        this.maxJumps = 1;
         this.targetX = this.x;
+        
+        // УБРАНЫ ВСЕ буст-переменные
+        this.lastJumpTime = 0;
+        this.canJump = true;
     }
 
     // Обновление состояния игрока
     update(deltaTime) {
         // Применяем гравитацию
         this.velocityY += CONFIG.PLAYER.GRAVITY;
+        
+        // Ограничиваем максимальную скорость падения
+        if (this.velocityY > 12) {
+            this.velocityY = 12;
+        }
         
         // Обработка ввода для движения
         this.handleMovement(deltaTime);
@@ -40,6 +49,11 @@ class Player {
         
         // Обновление направления для анимации
         this.updateDirection();
+        
+        // Разрешаем прыжок если игрок падает
+        if (this.velocityY > 0) {
+            this.canJump = true;
+        }
         
         // Проверка выхода за нижнюю границу
         if (this.y > CONFIG.CANVAS.HEIGHT + 100) {
@@ -54,7 +68,7 @@ class Player {
         if (this.targetX !== null) {
             // Плавное движение к целевой позиции
             const diff = this.targetX - this.x;
-            this.velocityX = diff * 0.2;
+            this.velocityX = diff * 0.15;
             
             if (Math.abs(this.velocityX) > CONFIG.PLAYER.MAX_SPEED) {
                 this.velocityX = Math.sign(this.velocityX) * CONFIG.PLAYER.MAX_SPEED;
@@ -100,11 +114,11 @@ class Player {
         }
     }
 
-    // Отрисовка игрока - ИСПОЛЬЗУЕМ PNG
+    // Отрисовка игрока
     draw(ctx, assets) {
         const image = assets.getImage('player');
         
-        if (image && image.complete && image.naturalWidth !== 0) {
+        if (image) {
             // Отражение изображения если движется влево
             if (this.lastDirection === 'left') {
                 ctx.save();
@@ -115,7 +129,7 @@ class Player {
                 ctx.drawImage(image, this.x, this.y, this.width, this.height);
             }
         } else {
-            // Fallback отрисовка если PNG не загрузился
+            // Fallback отрисовка
             this.drawFallback(ctx);
         }
         
@@ -172,14 +186,6 @@ class Player {
         ctx.beginPath();
         ctx.arc(centerX, centerY + 5, 7, 0.2 * Math.PI, 0.8 * Math.PI);
         ctx.stroke();
-        
-        // Блики
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.beginPath();
-        const highlightOffset = this.lastDirection === 'left' ? -0.5 : 0.5;
-        ctx.arc(centerX - 9 * eyeOffset + highlightOffset, centerY - 6, 1.5, 0, Math.PI * 2);
-        ctx.arc(centerX + 7 * eyeOffset + highlightOffset, centerY - 6, 1.5, 0, Math.PI * 2);
-        ctx.fill();
     }
 
     // Отладочная информация
@@ -190,23 +196,46 @@ class Player {
         ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 25);
         ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 40);
         ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 55);
+        ctx.fillText(`Jumps: ${this.jumpCount}`, this.x, this.y - 70);
     }
 
-    // Прыжок
+    // Прыжок - АБСОЛЮТНО ПРЕДСКАЗУЕМАЯ СИЛА
     jump() {
+        const currentTime = Date.now();
+        
+        // Защита от слишком частых прыжков
+        if (currentTime - this.lastJumpTime < 200) { // Увеличили до 200 мс
+            return false;
+        }
+        
+        // Проверяем можно ли прыгать
+        if (!this.canJump) {
+            return false;
+        }
+        
         if (this.jumpCount < this.maxJumps) {
+            // ФИКСИРОВАННАЯ СИЛА ПРЫЖКА - НИКАКИХ МОДИФИКАТОРОВ!
             this.velocityY = CONFIG.PLAYER.JUMP_FORCE;
             this.isJumping = true;
             this.jumpCount++;
+            this.lastJumpTime = currentTime;
+            this.canJump = false;
+            
+            console.log(`Jump! Fixed velocityY: ${this.velocityY}`);
+            
             return true;
         }
         return false;
     }
 
-    // Обработка приземления на платформу
+    // Обработка приземления на платформу - ТОЛЬКО СБРОС СОСТОЯНИЯ И ПРЫЖОК
     onPlatformHit() {
+        // Сбрасываем состояние прыжка
         this.isJumping = false;
         this.jumpCount = 0;
+        this.canJump = true;
+        
+        // Вызываем прыжок - СИЛА БУДЕТ ТОЧНО CONFIG.PLAYER.JUMP_FORCE
         this.jump();
     }
 
@@ -251,6 +280,7 @@ class Player {
     // Сброс счетчика прыжков
     resetJumps() {
         this.jumpCount = 0;
+        this.canJump = true;
     }
 }
 

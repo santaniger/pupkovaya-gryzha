@@ -316,7 +316,7 @@ class DoodleJumpGame {
         }
     }
 
-    // Обновление игровой логики
+    // В методе update УБИРАЕМ ВСЯКОЕ ИЗМЕНЕНИЕ ФИЗИКИ
     update(currentTime) {
         this.currentTime = currentTime;
         
@@ -347,14 +347,24 @@ class DoodleJumpGame {
             this.updateScoreDisplay();
         }
         
-        // Увеличение сложности
-        this.increaseDifficulty();
+        // УБРАН ВЫЗОВ increaseDifficulty() - физика не меняется во время игры!
     }
 
-    // Увеличение сложности со временем
+    // УБИРАЕМ метод increaseDifficulty полностью или оставляем пустым
     increaseDifficulty() {
-        const difficulty = 1 + (this.distance * CONFIG.GAME.DIFFICULTY_INCREASE);
-        CONFIG.PLAYER.GRAVITY = 0.5 * difficulty;
+        // НИЧЕГО НЕ ДЕЛАЕМ - физика постоянна
+    }
+
+    // В методе update закомментируем увеличение сложности:
+    increaseDifficulty() {
+        // ВРЕМЕННО ОТКЛЮЧАЕМ УВЕЛИЧЕНИЕ СЛОЖНОСТИ
+        // const difficulty = 1 + (this.distance * CONFIG.GAME.DIFFICULTY_INCREASE);
+        // if (difficulty < 1.5) {
+        //     CONFIG.PLAYER.GRAVITY = 0.5 * difficulty;
+        // }
+        
+        // Фиксированная гравитация
+        CONFIG.PLAYER.GRAVITY = 0.5;
     }
 
     // Отрисовка игры

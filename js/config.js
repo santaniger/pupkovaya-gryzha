@@ -6,33 +6,33 @@ const CONFIG = {
         HEIGHT: 600
     },
     
-    // Настройки игрока - УМЕНЬШЕНА СКОРОСТЬ
+    // Настройки игрока - ФИНАЛЬНЫЕ ЗНАЧЕНИЯ
     PLAYER: {
         WIDTH: 40,
         HEIGHT: 40,
-        JUMP_FORCE: -12,
-        GRAVITY: 0.5,
-        MAX_SPEED: 4, // Было 8, теперь 4
-        ACCELERATION: 0.3, // Было 0.5, теперь 0.3
-        FRICTION: 0.85 // Было 0.9, теперь 0.85 (меньше скольжения)
+        JUMP_FORCE: -9.5, // Фиксированное значение
+        GRAVITY: 0.5,     // Фиксированная гравитация
+        MAX_SPEED: 4,
+        ACCELERATION: 0.3,
+        FRICTION: 0.85
     },
     
     // Настройки платформ
     PLATFORMS: {
         WIDTH: 70,
-        HEIGHT: 16,
-        MIN_GAP: 70,
-        MAX_GAP: 120,
+        HEIGHT: 20,
+        MIN_GAP: 90,
+        MAX_GAP: 140,
         START_COUNT: 10,
-        MOVE_SPEED: 1.5, // Немного уменьшена скорость движущихся платформ
+        MOVE_SPEED: 1.5,
         BREAKING_TIME: 0.5
     },
     
-    // Настройки игры
+    // Настройки игры - УБИРАЕМ УВЕЛИЧЕНИЕ СЛОЖНОСТИ
     GAME: {
         INITIAL_SCROLL_THRESHOLD: 200,
         SCORE_MULTIPLIER: 0.1,
-        DIFFICULTY_INCREASE: 0.0001,
+        DIFFICULTY_INCREASE: 0, // НУЛЕВОЕ увеличение сложности
         PLATFORM_SPAWN_RATE: 0.7
     },
     
@@ -54,8 +54,8 @@ const CONFIG = {
     
     // Вероятности появления платформ
     PLATFORM_PROBABILITIES: {
-        NORMAL: 0.7,
-        BREAKING: 0.2,
+        NORMAL: 0.8,
+        BREAKING: 0.1,
         MOVING: 0.1
     }
 };
