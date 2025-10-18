@@ -88,27 +88,19 @@ class TelegramIntegration {
         document.documentElement.style.setProperty('--safe-area-left', `${safeArea.left}px`);
         document.documentElement.style.setProperty('--safe-area-right', `${safeArea.right}px`);
         
-        // Используем безопасный вызов requestViewport
-        if (this.tg.requestViewport && typeof this.tg.requestViewport === 'function') {
-            this.tg.requestViewport();
-        } else {
-            console.log('ℹ️ requestViewport not available in this Telegram version');
-        }
+        this.tg.requestViewport();
     }
 
     setupEvents() {
-        // Используем безопасные вызовы методов
-        if (this.tg.onEvent && typeof this.tg.onEvent === 'function') {
-            this.tg.onEvent('viewportChanged', (event) => {
-                console.log('Viewport changed:', event);
-                this.setupViewport();
-            });
-            
-            this.tg.onEvent('themeChanged', () => {
-                console.log('Theme changed');
-                this.setupTheme();
-            });
-        }
+        this.tg.onEvent('viewportChanged', (event) => {
+            console.log('Viewport changed:', event);
+            this.setupViewport();
+        });
+        
+        this.tg.onEvent('themeChanged', () => {
+            console.log('Theme changed');
+            this.setupTheme();
+        });
         
         if (this.tg.BackButton) {
             this.tg.BackButton.onClick(() => {
@@ -141,31 +133,25 @@ class TelegramIntegration {
                     
                 case GameState.GAME_OVER:
                 case GameState.MENU:
-                    if (this.tg.close && typeof this.tg.close === 'function') {
-                        this.tg.close();
-                    }
+                    this.tg.close();
                     break;
             }
         } else {
-            if (this.tg.close && typeof this.tg.close === 'function') {
-                this.tg.close();
-            }
+            this.tg.close();
         }
     }
 
     setupMainButton() {
-        if (this.tg.MainButton && this.tg.MainButton.setText && this.tg.MainButton.onClick) {
-            this.tg.MainButton.setText('Play Game');
-            this.tg.MainButton.onClick(() => {
-                if (window.game) {
-                    window.game.startGame();
-                }
-            });
-        }
+        this.tg.MainButton.setText('Play Game');
+        this.tg.MainButton.onClick(() => {
+            if (window.game) {
+                window.game.startGame();
+            }
+        });
     }
 
     showMainButton(text, onClick) {
-        if (this.tg.MainButton && this.tg.MainButton.setText && this.tg.MainButton.onClick && this.tg.MainButton.show) {
+        if (this.tg.MainButton) {
             this.tg.MainButton.setText(text);
             this.tg.MainButton.onClick(onClick);
             this.tg.MainButton.show();
@@ -173,7 +159,7 @@ class TelegramIntegration {
     }
 
     hideMainButton() {
-        if (this.tg.MainButton && this.tg.MainButton.hide) {
+        if (this.tg.MainButton) {
             this.tg.MainButton.hide();
         }
     }
@@ -242,7 +228,18 @@ class TelegramIntegration {
                 onClick: (callback) => console.log('[Mock] MainButton callback set')
             },
             
-            // Убираем requestViewport из mock так как его нет в реальном API
+            requestViewport: () => console.log('[Mock] Viewport requested'),
+            
+            sendData: (data) => {
+                console.log('[Mock] Data sent to bot:', data);
+                return true;
+            },
+            
+            shareUrl: (url, text) => {
+                console.log(`[Mock] Sharing: ${text} - ${url}`);
+                return true;
+            },
+            
             version: '6.0'
         };
         
@@ -251,7 +248,7 @@ class TelegramIntegration {
     }
 
     sendGameData(data) {
-        if (this.tg && this.tg.sendData && typeof this.tg.sendData === 'function') {
+        if (this.tg && typeof this.tg.sendData === 'function') {
             try {
                 this.tg.sendData(JSON.stringify(data));
                 return true;
@@ -264,7 +261,7 @@ class TelegramIntegration {
     }
 
     shareLink(url, text) {
-        if (this.tg && this.tg.shareUrl && typeof this.tg.shareUrl === 'function') {
+        if (this.tg && typeof this.tg.shareUrl === 'function') {
             try {
                 this.tg.shareUrl(url, text);
                 return true;

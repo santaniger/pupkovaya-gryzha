@@ -41,18 +41,14 @@ class DoodleJumpGame {
         this.init();
     }
 
-    // В методе init исправляем загрузку ассетов
+    // Инициализация игры
     async init() {
         console.log('🚀 Starting game initialization...');
         
         try {
             // Загрузка ресурсов
-            if (this.assets && typeof this.assets.loadAllAssets === 'function') {
-                await this.assets.loadAllAssets();
-                console.log('✅ Assets loaded successfully');
-            } else {
-                console.warn('⚠️ AssetManager not available, using fallback graphics');
-            }
+            await this.assets.loadAllAssets();
+            console.log('✅ Assets loaded successfully');
             
             // Настройка управления
             this.setupControls();
