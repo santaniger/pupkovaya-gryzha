@@ -1,3 +1,4 @@
+// load.js
 // Файл для контроля порядка загрузки
 console.log('Starting game load sequence...');
 
@@ -18,22 +19,36 @@ function loadScript(src) {
         script.src = src;
         script.onload = () => {
             loadedCount++;
-            console.log(`Loaded: ${src} (${loadedCount}/${scripts.length})`);
+            console.log(`✅ Loaded: ${src} (${loadedCount}/${scripts.length})`);
             resolve();
         };
-        script.onerror = reject;
+        script.onerror = (error) => {
+            console.error(`❌ Failed to load: ${src}`, error);
+            reject(error);
+        };
         document.head.appendChild(script);
     });
 }
 
 async function loadAllScripts() {
     try {
+        console.log('🚀 Starting script loading...');
+        
         for (const script of scripts) {
             await loadScript(script);
         }
-        console.log('All scripts loaded successfully!');
+        
+        console.log('🎉 All scripts loaded successfully!');
+        return true;
     } catch (error) {
-        console.error('Error loading scripts:', error);
+        console.error('💥 Error loading scripts:', error);
+        // Показываем сообщение об ошибке
+        const loadingText = document.getElementById('loadingText');
+        if (loadingText) {
+            loadingText.textContent = 'Error loading game. Please refresh the page.';
+            loadingText.style.color = '#e74c3c';
+        }
+        return false;
     }
 }
 

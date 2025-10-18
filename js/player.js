@@ -4,6 +4,14 @@ console.log('🔧 Loading Player class...');
 class Player {
     constructor() {
         console.log('🎮 Creating new Player instance');
+        
+        // ИНИЦИАЛИЗИРУЕМ stats ДО вызова reset()
+        this.stats = {
+            totalJumps: 0,
+            jumpHistory: [],
+            velocityHistory: []
+        };
+        
         this.reset();
         this.input = {
             left: false,
@@ -11,13 +19,6 @@ class Player {
         };
         this.lastDirection = 'right';
         this.targetX = null;
-        
-        // Статистика для отладки
-        this.stats = {
-            totalJumps: 0,
-            jumpHistory: [],
-            velocityHistory: []
-        };
     }
 
     // Сброс состояния игрока
@@ -41,7 +42,7 @@ class Player {
         this.jumpCooldown = false;
         this.jumpInProgress = false;
         
-        // Сбрасываем статистику
+        // Сбрасываем статистику - теперь stats гарантированно существует
         this.stats.totalJumps = 0;
         this.stats.jumpHistory = [];
         this.stats.velocityHistory = [];
