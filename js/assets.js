@@ -161,29 +161,36 @@ class AssetManager {
     }
 
     // Создание спрайта фона
+    // assets.js - ОБНОВИТЬ метод createBackgroundSprite
+    // Создание спрайта фона - ИСПРАВЛЕННАЯ ВЕРСИЯ
     createBackgroundSprite() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = CONFIG.CANVAS.WIDTH;
-        canvas.height = CONFIG.CANVAS.HEIGHT;
+        
+        // Используем значения из CONFIG, но с проверкой
+        const width = CONFIG?.CANVAS?.WIDTH || 360;
+        const height = CONFIG?.CANVAS?.HEIGHT || 600;
+        
+        canvas.width = width;
+        canvas.height = height;
         
         // Градиентный фон
-        const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS.HEIGHT);
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
         gradient.addColorStop(0, '#87CEEB');
         gradient.addColorStop(0.7, '#98D8F0');
         gradient.addColorStop(1, '#E0F7FA');
         
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, width, height);
         
         // Облака
-        this.drawDetailedClouds(ctx);
+        this.drawDetailedClouds(ctx, width, height);
         
         return canvas;
     }
 
-    // Рисование детализированных облаков
-    drawDetailedClouds(ctx) {
+    // ОБНОВИТЬ метод drawDetailedClouds
+    drawDetailedClouds(ctx, width, height) {
         const clouds = [
             { x: 50, y: 80, size: 45 },
             { x: 150, y: 120, size: 65 },

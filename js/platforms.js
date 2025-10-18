@@ -136,30 +136,35 @@ class Platform {
         return false;
     }
 
-    // Проверка столкновения с игроком - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // platforms.js - ЗАМЕНИТЬ метод collidesWith
+    // Проверка столкновения с игроком - УЛУЧШЕННАЯ ВЕРСИЯ
     collidesWith(player, currentTime) {
-        // УМЕНЬШЕННОЕ время между коллизиями для лучшей отзывчивости
+        // СНИЖЕННОЕ время между коллизиями для лучшей отзывчивости
         const timeSinceCollision = currentTime - this.lastCollisionTime;
         if (timeSinceCollision < CONFIG.PLATFORMS.COLLISION_COOLDOWN) {
-            if (window.LOG_COLLISION) console.log(`🚫 Collision blocked: cooldown (${timeSinceCollision}ms < ${CONFIG.PLATFORMS.COLLISION_COOLDOWN}ms)`);
             return false;
         }
         
-        // УПРОЩЕННАЯ И УЛУЧШЕННАЯ проверка коллизии
+        // УПРОЩЕННАЯ И БОЛЕЕ ТОЧНАЯ проверка коллизии
+        const playerBottom = player.y + player.height;
+        const playerRight = player.x + player.width;
+        const platformBottom = this.y + this.height;
+        
+        // Основные условия коллизии
         const isColliding = 
-            player.x + player.width > this.x + CONFIG.PLATFORMS.COLLISION_MARGIN &&
+            playerRight > this.x + CONFIG.PLATFORMS.COLLISION_MARGIN &&
             player.x < this.x + this.width - CONFIG.PLATFORMS.COLLISION_MARGIN &&
-            player.y + player.height >= this.y && // >= вместо > для лучшего определения
-            player.y + player.height <= this.y + this.height + 2 && // Увеличенный запас
-            player.velocityY >= 0; // Разрешаем коллизии при любой положительной скорости
+            playerBottom >= this.y && // >= для лучшего определения
+            playerBottom <= this.y + this.height + 3 && // Увеличенный запас
+            player.velocityY >= 0 && // Только при падении или нулевой скорости
+            player.y < platformBottom; // Игрок должен быть выше платформы
         
         if (!isColliding) {
             return false;
         }
         
-        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: игрок действительно должен быть над платформой
-        const playerBottom = player.y + player.height;
-        if (playerBottom > this.y + this.height) {
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: предотвращаем коллизии сбоку
+        if (playerBottom > this.y + this.height / 2) {
             return false;
         }
         
@@ -171,8 +176,7 @@ class Platform {
             console.log(`🎯 COLLISION #${this.collisionCount} on ${this.type} platform`, {
                 playerY: player.y.toFixed(1),
                 playerBottom: playerBottom.toFixed(1),
-                platformY: this.y,
-                platformTop: this.y + this.height,
+                platformY: this.y.toFixed(1),
                 velocityY: player.velocityY.toFixed(2),
                 timeSinceLast: timeSinceCollision + 'ms'
             });
@@ -203,14 +207,33 @@ class PlatformManager {
         this.generateInitialPlatforms();
     }
 
-    // platforms.js - УДАЛИТЬ рекурсивный вызов из generateInitialPlatforms
-    // Генерация начальных платформ - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ РЕКУРСИИ
+    // platforms.js - ДОБАВИТЬ метод cleanupOldPlatforms
+    // Очистка старых платформ для оптимизации
+    cleanupOldPlatforms(playerY) {
+        const cleanupThreshold = 300; // Пикселей за пределами экрана для удаления
+        
+        const initialCount = this.platforms.length;
+        this.platforms = this.platforms.filter(platform => {
+            // Удаляем платформы далеко под игроком
+            return platform.y < playerY + CONFIG.CANVAS.HEIGHT + cleanupThreshold;
+        });
+        
+        const removed = initialCount - this.platforms.length;
+        if (removed > 0 && window.LOG_COLLISION) {
+            console.log(`🗑️ Cleaned up ${removed} old platforms`);
+        }
+        
+        return removed;
+    }
+
+    // platforms.js - ОБНОВИТЬ метод generateInitialPlatforms
+    // Генерация начальных платформ - ИСПРАВЛЕННАЯ ВЕРСИЯ
     generateInitialPlatforms() {
         console.log('🏗️ Generating initial platforms');
         
         // Стартовая платформа под игроком - ФИКСИРОВАННАЯ ПОЗИЦИЯ
         const startPlatformX = CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2;
-        const startPlatformY = CONFIG.GAME.START_PLATFORM_Y || CONFIG.CANVAS.HEIGHT - 100;
+        const startPlatformY = CONFIG.GAME.START_PLATFORM_Y;
         
         // Проверяем что позиция валидная
         if (isNaN(startPlatformY) || startPlatformY === undefined) {
@@ -318,7 +341,7 @@ class PlatformManager {
                Math.random() * (CONFIG.PLATFORMS.MAX_GAP - CONFIG.PLATFORMS.MIN_GAP);
     }
 
-    // Обновление состояния всех платформ
+    // ОБНОВИТЬ метод update в PlatformManager
     update(playerY, deltaTime) {
         // Обновляем каждую платформу и удаляем разрушенные
         const initialCount = this.platforms.length;
@@ -328,13 +351,11 @@ class PlatformManager {
         
         const removedCount = initialCount - this.platforms.length;
         if (removedCount > 0 && window.LOG_COLLISION) {
-            console.log(`🗑️ Removed ${removedCount} platforms`);
+            console.log(`🗑️ Removed ${removedCount} broken platforms`);
         }
 
-        // Удаляем платформы далеко за пределами экрана
-        this.platforms = this.platforms.filter(platform => {
-            return platform.y < playerY + CONFIG.CANVAS.HEIGHT + 200;
-        });
+        // Очистка старых платформ
+        this.cleanupOldPlatforms(playerY);
 
         // Генерация новых платформ сверху
         const highestPlatform = this.getHighestPlatform();

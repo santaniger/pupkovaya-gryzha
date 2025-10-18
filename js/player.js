@@ -29,10 +29,19 @@ class Player {
         this.width = CONFIG.PLAYER.WIDTH;
         this.height = CONFIG.PLAYER.HEIGHT;
         this.x = CONFIG.CANVAS.WIDTH / 2 - this.width / 2;
-        this.y = CONFIG.PLAYER.START_Y; // Используем фиксированную стартовую позицию
+        
+        // Используем фиксированную стартовую позицию с проверкой
+        if (CONFIG.PLAYER.START_Y && !isNaN(CONFIG.PLAYER.START_Y)) {
+            this.y = CONFIG.PLAYER.START_Y;
+        } else {
+            // Fallback позиция
+            this.y = CONFIG.CANVAS.HEIGHT - 150;
+            console.warn('⚠️ Using fallback player START_Y:', this.y);
+        }
+        
         this.velocityX = 0;
         this.velocityY = 0;
-        this.isJumping = false; // Начинаем не в прыжке
+        this.isJumping = false;
         this.jumpCount = 0;
         this.maxJumps = 1;
         this.targetX = this.x;
@@ -42,7 +51,7 @@ class Player {
         this.canJump = true;
         this.jumpCooldown = false;
         this.jumpInProgress = false;
-        this.isOnPlatform = true; // Начинаем на платформе
+        this.isOnPlatform = true;
         
         // Сбрасываем статистику
         this.stats.totalJumps = 0;
@@ -51,9 +60,22 @@ class Player {
         this.stats.lastCollisionTime = 0;
         
         console.log(`✅ Player reset complete at (${Math.round(this.x)}, ${Math.round(this.y)})`);
+        
+        // Проверка валидности позиции
+        if (isNaN(this.x) || isNaN(this.y)) {
+            console.error('❌ Player has invalid position after reset!', {
+                x: this.x,
+                y: this.y
+            });
+            // Экстренное исправление
+            this.x = CONFIG.CANVAS.WIDTH / 2 - this.width / 2;
+            this.y = CONFIG.CANVAS.HEIGHT - 150;
+            console.log('🔄 Emergency position fix applied');
+        }
     }
 
-    // Обновление состояния игрока - ИСПРАВЛЕННЫЙ
+    // player.js - ЗАМЕНИТЬ метод update
+    // Обновление состояния игрока - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
     update(deltaTime) {
         // Сохраняем предыдущую скорость для отладки
         const previousVelocityY = this.velocityY;
@@ -81,13 +103,18 @@ class Player {
         this.updateDirection();
         
         // Автоматически сбрасываем isOnPlatform если падаем
-        if (this.velocityY > 0) {
+        if (this.velocityY > 0.5) { // Небольшой порог для стабильности
             this.isOnPlatform = false;
         }
         
         // Разрешаем прыжок только если игрок падает или на платформе
-        if (this.velocityY > 1 || this.isOnPlatform) {
+        if (this.velocityY > 0.5 || this.isOnPlatform) {
             this.canJump = true;
+        }
+        
+        // Автоматический сброс jumpInProgress через короткое время
+        if (this.jumpInProgress && this.velocityY > 0) {
+            this.jumpInProgress = false;
         }
         
         // Логирование аномальной скорости
@@ -262,7 +289,8 @@ class Player {
         });
     }
 
-    // Прыжок - УПРОЩЕННАЯ И ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // player.js - ЗАМЕНИТЬ метод jump
+    // Прыжок - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
     jump() {
         const currentTime = Date.now();
         
@@ -319,11 +347,11 @@ class Player {
             });
         }
         
-        // Сбрасываем кулдаун через 50 мс
+        // Сбрасываем кулдаун через КОРОТКОЕ время
         setTimeout(() => {
             this.jumpCooldown = false;
-            this.jumpInProgress = false;
-        }, 50);
+            // Не сбрасываем jumpInProgress сразу - это делается в update
+        }, 30); // Уменьшено с 50ms до 30ms
         
         return true;
     }

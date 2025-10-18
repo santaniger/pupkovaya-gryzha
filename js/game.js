@@ -519,7 +519,8 @@ class DoodleJumpGame {
         }
     }
 
-    // Обновление игровой логики - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // game.js - ЗАМЕНИТЬ метод update (часть с обработкой коллизий)
+    // Обновление игровой логики - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
     update(currentTime) {
         try {
             this.currentTime = currentTime;
@@ -543,44 +544,46 @@ class DoodleJumpGame {
                 return;
             }
             
-            // Проверка столкновений с платформами
-            const collisionOccurred = this.platformManager.checkCollisions(this.player, currentTime);
-            if (collisionOccurred) {
-                // Записываем в историю коллизий
-                this.stats.collisionHistory.push({
-                    time: currentTime,
-                    frame: this.frameCount,
-                    velocityBefore: previousVelocityY,
-                    velocityAfter: this.player.velocityY,
-                    playerY: this.player.y
-                });
-                
-                // Держим только последние 10 коллизий
-                if (this.stats.collisionHistory.length > 10) {
-                    this.stats.collisionHistory.shift();
-                }
-                
-                if (window.LOG_COLLISION) {
-                    console.log('🔄 Processing platform collision...', {
+            // Проверка столкновений с платформами - ТОЛЬКО ЕСЛИ ПАДАЕТ
+            if (this.player.velocityY >= 0) { // Только при падении или нулевой скорости
+                const collisionOccurred = this.platformManager.checkCollisions(this.player, currentTime);
+                if (collisionOccurred) {
+                    // Записываем в историю коллизий
+                    this.stats.collisionHistory.push({
+                        time: currentTime,
                         frame: this.frameCount,
-                        velocityBefore: previousVelocityY.toFixed(2),
-                        velocityAfter: this.player.velocityY.toFixed(2),
-                        playerY: this.player.y.toFixed(1)
+                        velocityBefore: previousVelocityY,
+                        velocityAfter: this.player.velocityY,
+                        playerY: this.player.y
                     });
-                }
-                
-                // Сбрасываем состояние игрока
-                this.player.onPlatformHit();
-                
-                // ВЫПОЛНЯЕМ ПРЫЖОК после приземления
-                const jumpResult = this.player.jump();
-                
-                if (window.LOG_JUMP && jumpResult) {
-                    console.log('🎯 Collision jump executed', {
-                        velocityY: this.player.velocityY,
-                        expected: CONFIG.PLAYER.JUMP_FORCE,
-                        match: this.player.velocityY === CONFIG.PLAYER.JUMP_FORCE
-                    });
+                    
+                    // Держим только последние 10 коллизий
+                    if (this.stats.collisionHistory.length > 10) {
+                        this.stats.collisionHistory.shift();
+                    }
+                    
+                    if (window.LOG_COLLISION) {
+                        console.log('🔄 Processing platform collision...', {
+                            frame: this.frameCount,
+                            velocityBefore: previousVelocityY.toFixed(2),
+                            velocityAfter: this.player.velocityY.toFixed(2),
+                            playerY: this.player.y.toFixed(1)
+                        });
+                    }
+                    
+                    // Сбрасываем состояние игрока
+                    this.player.onPlatformHit();
+                    
+                    // ВЫПОЛНЯЕМ ПРЫЖОК после приземления
+                    const jumpResult = this.player.jump();
+                    
+                    if (window.LOG_JUMP && jumpResult) {
+                        console.log('🎯 Collision jump executed', {
+                            velocityY: this.player.velocityY,
+                            expected: CONFIG.PLAYER.JUMP_FORCE,
+                            match: this.player.velocityY === CONFIG.PLAYER.JUMP_FORCE
+                        });
+                    }
                 }
             }
             
