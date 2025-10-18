@@ -129,25 +129,33 @@ class Platform {
     }
 
     // В методе collidesWith улучшаем защиту
+    // В методе collidesWith добавляем МАКСИМАЛЬНУЮ защиту
     collidesWith(player, currentTime) {
-        // УВЕЛИЧИВАЕМ защитное время до 400 мс
-        if (currentTime - this.lastCollisionTime < 400) {
+        // СУПЕР-ЗАЩИТА: 500 мс между коллизиями
+        if (currentTime - this.lastCollisionTime < 500) {
             return false;
         }
         
-        // Более строгая проверка коллизии
+        // ОЧЕНЬ СТРОГАЯ проверка коллизии
         const isColliding = 
-            player.x + player.width > this.x + 5 &&
-            player.x < this.x + this.width - 5 &&
+            player.x + player.width > this.x + 8 && // Больший отступ от краев
+            player.x < this.x + this.width - 8 &&
             player.y + player.height > this.y &&
-            player.y + player.height < this.y + this.height + 8 &&
-            player.velocityY > 0.5; // Только при заметном падении
+            player.y + player.height < this.y + this.height + 5 && // Меньший запас
+            player.velocityY > 1.0; // Только при значительном падении
         
         if (!isColliding) {
             return false;
         }
         
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: игрок действительно должен прыгнуть
+        if (player.y + player.height > this.y + this.height) {
+            return false;
+        }
+        
         this.lastCollisionTime = currentTime;
+        
+        console.log(`Platform collision at ${currentTime}`);
         return true;
     }
 

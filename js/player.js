@@ -23,9 +23,10 @@ class Player {
         this.maxJumps = 1;
         this.targetX = this.x;
         
-        // УБРАНЫ ВСЕ буст-переменные
+        // КРИТИЧЕСКИ ВАЖНО: сбрасываем ВСЕ состояния прыжка
         this.lastJumpTime = 0;
         this.canJump = true;
+        this.jumpCooldown = false;
     }
 
     // Обновление состояния игрока
@@ -33,9 +34,9 @@ class Player {
         // Применяем гравитацию
         this.velocityY += CONFIG.PLAYER.GRAVITY;
         
-        // Ограничиваем максимальную скорость падения
-        if (this.velocityY > 12) {
-            this.velocityY = 12;
+        // СИЛЬНОЕ ограничение максимальной скорости падения
+        if (this.velocityY > 10) {
+            this.velocityY = 10;
         }
         
         // Обработка ввода для движения
@@ -50,8 +51,8 @@ class Player {
         // Обновление направления для анимации
         this.updateDirection();
         
-        // Разрешаем прыжок если игрок падает
-        if (this.velocityY > 0) {
+        // Разрешаем прыжок только если игрок падает
+        if (this.velocityY > 2) {
             this.canJump = true;
         }
         
@@ -197,46 +198,60 @@ class Player {
         ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 40);
         ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 55);
         ctx.fillText(`Jumps: ${this.jumpCount}`, this.x, this.y - 70);
+        ctx.fillText(`CanJump: ${this.canJump}`, this.x, this.y - 85);
+        ctx.fillText(`Cooldown: ${this.jumpCooldown}`, this.x, this.y - 100);
     }
 
-    // Прыжок - АБСОЛЮТНО ПРЕДСКАЗУЕМАЯ СИЛА
+    // Прыжок - УЛЬТРА-ЗАЩИЩЕННАЯ ВЕРСИЯ
     jump() {
         const currentTime = Date.now();
         
-        // Защита от слишком частых прыжков
-        if (currentTime - this.lastJumpTime < 200) { // Увеличили до 200 мс
+        // СУПЕР-ЗАЩИТА: проверяем ВСЕ возможные условия
+        if (this.jumpCooldown) {
+            console.log('Jump blocked: cooldown');
             return false;
         }
         
-        // Проверяем можно ли прыгать
         if (!this.canJump) {
+            console.log('Jump blocked: cannot jump');
             return false;
         }
         
-        if (this.jumpCount < this.maxJumps) {
-            // ФИКСИРОВАННАЯ СИЛА ПРЫЖКА - НИКАКИХ МОДИФИКАТОРОВ!
-            this.velocityY = CONFIG.PLAYER.JUMP_FORCE;
-            this.isJumping = true;
-            this.jumpCount++;
-            this.lastJumpTime = currentTime;
-            this.canJump = false;
-            
-            console.log(`Jump! Fixed velocityY: ${this.velocityY}`);
-            
-            return true;
+        if (currentTime - this.lastJumpTime < 300) { // Увеличили до 300 мс
+            console.log('Jump blocked: too fast');
+            return false;
         }
-        return false;
+        
+        if (this.jumpCount >= this.maxJumps) {
+            console.log('Jump blocked: max jumps reached');
+            return false;
+        }
+        
+        // АБСОЛЮТНО ФИКСИРОВАННАЯ СИЛА ПРЫЖКА
+        this.velocityY = CONFIG.PLAYER.JUMP_FORCE;
+        this.isJumping = true;
+        this.jumpCount++;
+        this.lastJumpTime = currentTime;
+        this.canJump = false;
+        this.jumpCooldown = true;
+        
+        // Сбрасываем кулдаун через 50 мс
+        setTimeout(() => {
+            this.jumpCooldown = false;
+        }, 50);
+        
+        console.log(`JUMP! velocityY: ${this.velocityY}, time: ${currentTime}`);
+        return true;
     }
 
-    // Обработка приземления на платформу - ТОЛЬКО СБРОС СОСТОЯНИЯ И ПРЫЖОК
+    // Обработка приземления на платформу - МИНИМАЛИСТИЧНАЯ ВЕРСИЯ
     onPlatformHit() {
-        // Сбрасываем состояние прыжка
+        // ТОЛЬКО СБРОС СОСТОЯНИЯ, НИКАКОЙ ДОПОЛНИТЕЛЬНОЙ ЛОГИКИ
         this.isJumping = false;
         this.jumpCount = 0;
         this.canJump = true;
         
-        // Вызываем прыжок - СИЛА БУДЕТ ТОЧНО CONFIG.PLAYER.JUMP_FORCE
-        this.jump();
+        console.log('Platform hit - state reset');
     }
 
     // Установка ввода для клавиатуры
@@ -281,6 +296,7 @@ class Player {
     resetJumps() {
         this.jumpCount = 0;
         this.canJump = true;
+        this.jumpCooldown = false;
     }
 }
 
