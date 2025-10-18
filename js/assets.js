@@ -1,3 +1,4 @@
+// assets.js
 // Менеджер ресурсов игры
 console.log('🔧 Loading AssetManager...');
 
@@ -83,6 +84,8 @@ class AssetManager {
             img.onload = () => {
                 console.log(`✅ Successfully loaded: ${src}`);
                 this.images[name] = img;
+                this.loadedAssets++;
+                this.loadProgress = (this.loadedAssets / this.totalAssets) * 100;
                 resolve();
             };
             img.onerror = () => {
@@ -96,7 +99,7 @@ class AssetManager {
                     console.warn(`⏰ Timeout loading: ${src}`);
                     reject(new Error(`Timeout loading: ${src}`));
                 }
-            }, 2000);
+            }, 3000);
         });
     }
 

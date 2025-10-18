@@ -1,3 +1,4 @@
+// player.js
 // Класс игрока
 console.log('🔧 Loading Player class...');
 
@@ -5,11 +6,11 @@ class Player {
     constructor() {
         console.log('🎮 Creating new Player instance');
         
-        // ИНИЦИАЛИЗИРУЕМ stats ДО вызова reset()
         this.stats = {
             totalJumps: 0,
             jumpHistory: [],
-            velocityHistory: []
+            velocityHistory: [],
+            lastCollisionTime: 0
         };
         
         this.reset();
@@ -21,17 +22,17 @@ class Player {
         this.targetX = null;
     }
 
-    // Сброс состояния игрока
+    // Сброс состояния игрока - ИСПРАВЛЕННЫЙ
     reset() {
         console.log('🔄 Resetting player state');
         
         this.width = CONFIG.PLAYER.WIDTH;
         this.height = CONFIG.PLAYER.HEIGHT;
         this.x = CONFIG.CANVAS.WIDTH / 2 - this.width / 2;
-        this.y = CONFIG.CANVAS.HEIGHT - 150;
+        this.y = CONFIG.PLAYER.START_Y; // Используем фиксированную стартовую позицию
         this.velocityX = 0;
         this.velocityY = 0;
-        this.isJumping = true;
+        this.isJumping = false; // Начинаем не в прыжке
         this.jumpCount = 0;
         this.maxJumps = 1;
         this.targetX = this.x;
@@ -41,24 +42,28 @@ class Player {
         this.canJump = true;
         this.jumpCooldown = false;
         this.jumpInProgress = false;
+        this.isOnPlatform = true; // Начинаем на платформе
         
-        // Сбрасываем статистику - теперь stats гарантированно существует
+        // Сбрасываем статистику
         this.stats.totalJumps = 0;
         this.stats.jumpHistory = [];
         this.stats.velocityHistory = [];
+        this.stats.lastCollisionTime = 0;
         
-        console.log('✅ Player reset complete');
+        console.log(`✅ Player reset complete at (${Math.round(this.x)}, ${Math.round(this.y)})`);
     }
 
-    // Обновление состояния игрока
+    // Обновление состояния игрока - ИСПРАВЛЕННЫЙ
     update(deltaTime) {
         // Сохраняем предыдущую скорость для отладки
         const previousVelocityY = this.velocityY;
         
-        // Применяем гравитацию
-        this.velocityY += CONFIG.PLAYER.GRAVITY;
+        // Применяем гравитацию ТОЛЬКО если не на платформе
+        if (!this.isOnPlatform) {
+            this.velocityY += CONFIG.PLAYER.GRAVITY;
+        }
         
-        // СИЛЬНОЕ ограничение максимальной скорости падения
+        // Ограничение максимальной скорости падения
         if (this.velocityY > CONFIG.PLAYER.MAX_FALL_SPEED) {
             this.velocityY = CONFIG.PLAYER.MAX_FALL_SPEED;
         }
@@ -75,8 +80,13 @@ class Player {
         // Обновление направления для анимации
         this.updateDirection();
         
-        // Разрешаем прыжок только если игрок падает
-        if (this.velocityY > 2) {
+        // Автоматически сбрасываем isOnPlatform если падаем
+        if (this.velocityY > 0) {
+            this.isOnPlatform = false;
+        }
+        
+        // Разрешаем прыжок только если игрок падает или на платформе
+        if (this.velocityY > 1 || this.isOnPlatform) {
             this.canJump = true;
         }
         
@@ -90,7 +100,8 @@ class Player {
             this.stats.velocityHistory.push({
                 time: Date.now(),
                 velocityY: this.velocityY,
-                y: this.y
+                y: this.y,
+                isOnPlatform: this.isOnPlatform
             });
             
             // Держим только последние 50 записей
@@ -241,22 +252,21 @@ class Player {
         ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 22);
         ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 34);
         ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 46);
-        ctx.fillText(`Jumps: ${this.jumpCount}/${this.maxJumps}`, this.x, this.y - 58);
+        ctx.fillText(`OnPlatform: ${this.isOnPlatform}`, this.x, this.y - 58);
         ctx.fillText(`CanJump: ${this.canJump}`, this.x, this.y - 70);
-        ctx.fillText(`Cooldown: ${this.jumpCooldown}`, this.x, this.y - 82);
         
         // Показываем последние 3 прыжка
         const recentJumps = this.stats.jumpHistory.slice(-3);
         recentJumps.forEach((jump, index) => {
-            ctx.fillText(`Jump${index}: ${jump.velocityY.toFixed(1)}`, this.x, this.y - (94 + index * 12));
+            ctx.fillText(`Jump${index}: ${jump.velocityY.toFixed(1)}`, this.x, this.y - (82 + index * 12));
         });
     }
 
-    // Прыжок - УЛЬТРА-ЗАЩИЩЕННАЯ ВЕРСИЯ
+    // Прыжок - УПРОЩЕННАЯ И ИСПРАВЛЕННАЯ ВЕРСИЯ
     jump() {
         const currentTime = Date.now();
         
-        // СУПЕР-ЗАЩИТА: проверяем ВСЕ возможные условия
+        // УПРОЩЕННЫЕ ПРОВЕРКИ
         if (this.jumpCooldown) {
             if (window.LOG_JUMP) console.log('🚫 Jump blocked: cooldown active');
             return false;
@@ -267,28 +277,19 @@ class Player {
             return false;
         }
         
-        if (this.jumpInProgress) {
-            if (window.LOG_JUMP) console.log('🚫 Jump blocked: jump already in progress');
-            return false;
-        }
-        
         const timeSinceLastJump = currentTime - this.lastJumpTime;
         if (timeSinceLastJump < CONFIG.GAME.JUMP_COOLDOWN) {
             if (window.LOG_JUMP) console.log(`🚫 Jump blocked: too fast (${timeSinceLastJump}ms < ${CONFIG.GAME.JUMP_COOLDOWN}ms)`);
             return false;
         }
         
-        if (this.jumpCount >= this.maxJumps) {
-            if (window.LOG_JUMP) console.log('🚫 Jump blocked: max jumps reached');
-            return false;
-        }
-        
         // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - ВЫПОЛНЯЕМ ПРЫЖОК
         this.jumpInProgress = true;
         
-        // АБСОЛЮТНО ФИКСИРОВАННАЯ СИЛА ПРЫЖКА
+        // ФИКСИРОВАННАЯ СИЛА ПРЫЖКА
         this.velocityY = CONFIG.PLAYER.JUMP_FORCE;
         this.isJumping = true;
+        this.isOnPlatform = false; // Больше не на платформе
         this.jumpCount++;
         this.lastJumpTime = currentTime;
         this.canJump = false;
@@ -300,7 +301,8 @@ class Player {
             time: currentTime,
             velocityY: this.velocityY,
             jumpCount: this.jumpCount,
-            sequence: this.stats.totalJumps
+            sequence: this.stats.totalJumps,
+            fromPlatform: this.isOnPlatform
         });
         
         // Держим только последние 10 прыжков
@@ -313,7 +315,7 @@ class Player {
                 velocityY: this.velocityY,
                 jumpCount: this.jumpCount,
                 timeSinceLast: timeSinceLastJump + 'ms',
-                sequence: this.stats.jumpHistory.map(j => j.velocityY.toFixed(1))
+                fromPlatform: this.isOnPlatform
             });
         }
         
@@ -326,16 +328,21 @@ class Player {
         return true;
     }
 
-    // Обработка приземления на платформу - МИНИМАЛИСТИЧНАЯ ВЕРСИЯ
+    // Обработка приземления на платформу - ИСПРАВЛЕННАЯ ВЕРСИЯ
     onPlatformHit() {
         if (window.LOG_COLLISION) {
             console.log('🎯 Platform hit - resetting jump state');
         }
         
-        // ТОЛЬКО СБРОС СОСТОЯНИЯ, НИКАКОЙ ДОПОЛНИТЕЛЬНОЙ ЛОГИКИ
+        // СБРАСЫВАЕМ ВСЕ СОСТОЯНИЯ
         this.isJumping = false;
+        this.isOnPlatform = true;
         this.jumpCount = 0;
         this.canJump = true;
+        this.velocityY = 0; // Останавливаем падение
+        
+        // Записываем время последней коллизии
+        this.stats.lastCollisionTime = Date.now();
     }
 
     // Установка ввода для клавиатуры
@@ -382,6 +389,7 @@ class Player {
         this.canJump = true;
         this.jumpCooldown = false;
         this.jumpInProgress = false;
+        this.isOnPlatform = true;
     }
     
     // Методы для отладки
@@ -391,6 +399,7 @@ class Player {
             velocity: { x: this.velocityX.toFixed(2), y: this.velocityY.toFixed(2) },
             state: {
                 isJumping: this.isJumping,
+                isOnPlatform: this.isOnPlatform,
                 jumpCount: this.jumpCount,
                 canJump: this.canJump,
                 jumpCooldown: this.jumpCooldown,
@@ -398,7 +407,8 @@ class Player {
             },
             stats: {
                 totalJumps: this.stats.totalJumps,
-                lastJumpTime: this.lastJumpTime
+                lastJumpTime: this.lastJumpTime,
+                lastCollisionTime: this.stats.lastCollisionTime
             }
         };
     }

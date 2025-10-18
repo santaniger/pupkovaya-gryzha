@@ -1,3 +1,4 @@
+// telegram.js
 // Интеграция с Telegram Web App
 console.log('🔧 Loading Telegram integration...');
 
@@ -88,9 +89,11 @@ class TelegramIntegration {
         document.documentElement.style.setProperty('--safe-area-left', `${safeArea.left}px`);
         document.documentElement.style.setProperty('--safe-area-right', `${safeArea.right}px`);
         
-        // Используем безопасный вызов requestViewport
-        if (this.tg.requestViewport && typeof this.tg.requestViewport === 'function') {
-            this.tg.requestViewport();
+        // Используем безопасный вызов
+        if (this.tg.isVersionAtLeast && this.tg.isVersionAtLeast('6.0')) {
+            if (this.tg.requestViewport && typeof this.tg.requestViewport === 'function') {
+                this.tg.requestViewport();
+            }
         } else {
             console.log('ℹ️ requestViewport not available in this Telegram version');
         }
@@ -110,13 +113,13 @@ class TelegramIntegration {
             });
         }
         
-        if (this.tg.BackButton) {
+        if (this.tg.BackButton && this.tg.BackButton.show && this.tg.BackButton.onClick) {
             this.tg.BackButton.onClick(() => {
                 this.handleBackButton();
             });
         }
         
-        if (this.tg.MainButton) {
+        if (this.tg.MainButton && this.tg.MainButton.setText) {
             this.setupMainButton();
         }
     }
@@ -224,6 +227,7 @@ class TelegramIntegration {
             },
             
             platform: 'unknown',
+            isVersionAtLeast: (version) => true,
             
             onEvent: (event, callback) => {
                 console.log(`[Mock] Event listener added: ${event}`);
@@ -240,10 +244,7 @@ class TelegramIntegration {
                 hide: () => console.log('[Mock] MainButton hidden'),
                 setText: (text) => console.log(`[Mock] MainButton text: ${text}`),
                 onClick: (callback) => console.log('[Mock] MainButton callback set')
-            },
-            
-            // Убираем requestViewport из mock так как его нет в реальном API
-            version: '6.0'
+            }
         };
         
         this.user = this.tg.initDataUnsafe.user;

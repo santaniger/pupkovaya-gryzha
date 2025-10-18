@@ -1,3 +1,4 @@
+// game.js
 // Основной класс игры Doodle Jump
 console.log('🔧 Loading DoodleJumpGame class...');
 
@@ -13,7 +14,7 @@ class DoodleJumpGame {
         this.player = new Player();
         
         // Состояние игры
-        this.state = GameState.MENU;
+        this.state = GameState.LOADING;
         this.score = 0;
         this.highScore = parseInt(localStorage.getItem('doodleHighScore')) || 0;
         this.distance = 0;
@@ -34,7 +35,8 @@ class DoodleJumpGame {
             totalFrames: 0,
             collisionHistory: [],
             jumpSequence: [],
-            gameStartTime: 0
+            gameStartTime: 0,
+            initializationTime: 0
         };
         
         // Инициализация
@@ -44,15 +46,20 @@ class DoodleJumpGame {
     // В методе init исправляем загрузку ассетов
     async init() {
         console.log('🚀 Starting game initialization...');
+        this.stats.initializationTime = Date.now();
         
         try {
-            // Загрузка ресурсов
-            if (this.assets && typeof this.assets.loadAllAssets === 'function') {
-                await this.assets.loadAllAssets();
-                console.log('✅ Assets loaded successfully');
-            } else {
-                console.warn('⚠️ AssetManager not available, using fallback graphics');
+            // Загрузка ресурсов с проверкой ошибок
+            if (!this.assets || typeof this.assets.loadAllAssets !== 'function') {
+                throw new Error('AssetManager not available');
             }
+            
+            const assetsLoaded = await this.assets.loadAllAssets();
+            if (!assetsLoaded || !this.assets.isLoaded()) {
+                throw new Error('Assets failed to load');
+            }
+            
+            console.log('✅ Assets loaded successfully');
             
             // Настройка управления
             this.setupControls();
@@ -60,14 +67,147 @@ class DoodleJumpGame {
             // Настройка интерфейса
             this.setupUI();
             
+            // Проверка начального состояния
+            this.validateInitialState();
+            
             // Запуск игрового цикла
             this.gameLoop();
             
-            console.log('🎉 Game initialized successfully!');
+            const initTime = Date.now() - this.stats.initializationTime;
+            console.log(`🎉 Game initialized successfully in ${initTime}ms!`);
             
         } catch (error) {
             console.error('❌ Error during game initialization:', error);
+            this.showErrorScreen('Failed to initialize game: ' + error.message);
         }
+    }
+
+   // game.js - ЗАМЕНИТЬ метод validateInitialState
+    // Проверка начального состояния - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ РЕКУРСИИ
+    validateInitialState() {
+        console.log('🔍 Validating initial game state...');
+        
+        // Добавляем счетчик попыток для предотвращения бесконечного цикла
+        if (!this.validationAttempts) {
+            this.validationAttempts = 0;
+        }
+        this.validationAttempts++;
+        
+        if (this.validationAttempts > 5) {
+            console.error('❌ Too many validation attempts, aborting!');
+            this.validationAttempts = 0;
+            return false;
+        }
+        
+        // Сначала проверяем позицию игрока
+        if (isNaN(this.player.x) || isNaN(this.player.y)) {
+            console.error('❌ Player has invalid position!', {
+                x: this.player.x,
+                y: this.player.y
+            });
+            
+            // Экстренное исправление позиции игрока
+            this.player.x = CONFIG.CANVAS.WIDTH / 2 - this.player.width / 2;
+            this.player.y = CONFIG.CANVAS.HEIGHT - 150;
+            this.player.isOnPlatform = true;
+            console.log('🔄 Emergency player position fix applied');
+        }
+        
+        const startPlatform = this.platformManager.getStartPlatform();
+        if (!startPlatform) {
+            console.error('❌ Start platform not found!');
+            
+            // Создаем экстренную платформу без рекурсивного вызова
+            const emergencyPlatform = new Platform(
+                CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2,
+                CONFIG.CANVAS.HEIGHT - 100,
+                PlatformType.NORMAL
+            );
+            this.platformManager.platforms.unshift(emergencyPlatform);
+            console.log('🔄 Emergency start platform created');
+            
+            // Сбрасываем счетчик и возвращаем успех после однократного исправления
+            this.validationAttempts = 0;
+            return true;
+        }
+        
+        // Проверяем позицию стартовой платформы
+        if (isNaN(startPlatform.x) || isNaN(startPlatform.y)) {
+            console.error('❌ Start platform has invalid position!', {
+                x: startPlatform.x,
+                y: startPlatform.y
+            });
+            
+            // Исправляем позицию платформы
+            startPlatform.x = CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2;
+            startPlatform.y = CONFIG.CANVAS.HEIGHT - 100;
+            console.log('🔄 Start platform position fixed');
+        }
+        
+        const playerOnPlatform = 
+            this.player.y + this.player.height <= startPlatform.y + startPlatform.height &&
+            this.player.y + this.player.height >= startPlatform.y &&
+            this.player.x + this.player.width > startPlatform.x &&
+            this.player.x < startPlatform.x + startPlatform.width;
+            
+        console.log('📊 Initial state validation:', {
+            startPlatform: {
+                x: startPlatform.x,
+                y: startPlatform.y,
+                width: startPlatform.width,
+                height: startPlatform.height
+            },
+            player: {
+                x: this.player.x,
+                y: this.player.y,
+                width: this.player.width,
+                height: this.player.height
+            },
+            playerBottom: this.player.y + this.player.height,
+            platformTop: startPlatform.y,
+            playerOnPlatform: playerOnPlatform
+        });
+        
+        if (!playerOnPlatform) {
+            console.warn('⚠️ Player not properly positioned on start platform');
+            
+            // Автоматическая корректировка позиции
+            const targetY = startPlatform.y - this.player.height;
+            console.log(`🔄 Auto-correcting player position from ${this.player.y} to ${targetY}`);
+            
+            this.player.y = targetY;
+            this.player.isOnPlatform = true;
+            this.player.velocityY = 0;
+            
+            // Повторная проверка после корректировки
+            const corrected = 
+                this.player.y + this.player.height <= startPlatform.y + startPlatform.height &&
+                this.player.y + this.player.height >= startPlatform.y;
+                
+            console.log(`✅ Position correction ${corrected ? 'successful' : 'failed'}`);
+        }
+        
+        // Финальная проверка всех платформ
+        this.platformManager.validatePlatforms();
+        
+        // Сбрасываем счетчик при успешной валидации
+        this.validationAttempts = 0;
+        
+        return true;
+    }
+
+    // Показать экран ошибки
+    showErrorScreen(message) {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingText = document.getElementById('loadingText');
+        
+        if (loadingScreen && loadingText) {
+            loadingText.textContent = message;
+            loadingText.style.color = '#e74c3c';
+            loadingScreen.style.borderColor = '#e74c3c';
+        }
+        
+        this.state = GameState.MENU;
     }
 
     // Настройка элементов управления
@@ -233,13 +373,19 @@ class DoodleJumpGame {
         }
     }
 
-    // Начало игры
+    // game.js - ЗАМЕНИТЬ метод startGame
+    // Начало игры - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ РЕКУРСИИ
     startGame() {
         console.log('🎮 Starting new game...');
         
         this.state = GameState.PLAYING;
         this.score = 0;
         this.distance = 0;
+        
+        // Сбрасываем счетчик валидации
+        this.validationAttempts = 0;
+        
+        // Сбрасываем компоненты
         this.player.reset();
         this.platformManager.reset();
         this.isTouching = false;
@@ -256,7 +402,45 @@ class DoodleJumpGame {
         document.getElementById('gameOverScreen').style.display = 'none';
         
         this.updateScoreDisplay();
-        console.log('✅ Game started!');
+        
+        // Проверка начального состояния с задержкой для гарантии инициализации
+        setTimeout(() => {
+            try {
+                const validationResult = this.validateInitialState();
+                if (!validationResult) {
+                    console.error('❌ Game validation failed! Attempting recovery...');
+                    this.emergencyRecovery();
+                } else {
+                    console.log('✅ Game started successfully!');
+                }
+            } catch (error) {
+                console.error('💥 Error during validation:', error);
+                this.emergencyRecovery();
+            }
+        }, 50);
+    }
+
+    // ДОБАВИТЬ метод emergencyRecovery
+    emergencyRecovery() {
+        console.log('🚨 Emergency recovery initiated...');
+        
+        // Полный сброс всех компонентов
+        this.platformManager.platforms = [];
+        this.platformManager.generateInitialPlatforms();
+        
+        this.player.x = CONFIG.CANVAS.WIDTH / 2 - this.player.width / 2;
+        this.player.y = CONFIG.CANVAS.HEIGHT - 150;
+        this.player.velocityX = 0;
+        this.player.velocityY = 0;
+        this.player.isOnPlatform = true;
+        
+        console.log('🔄 Emergency recovery completed');
+        
+        // Повторная проверка
+        setTimeout(() => {
+            const recovered = this.validateInitialState();
+            console.log(`🔄 Emergency recovery ${recovered ? 'successful' : 'failed'}`);
+        }, 100);
     }
 
     // Рестарт игры
@@ -335,84 +519,90 @@ class DoodleJumpGame {
         }
     }
 
-    // Обновление игровой логики
+    // Обновление игровой логики - ИСПРАВЛЕННАЯ ВЕРСИЯ
     update(currentTime) {
-        this.currentTime = currentTime;
-        this.frameCount++;
-        this.stats.totalFrames++;
-        
-        // Расчет времени между кадрами
-        if (this.lastTime === 0) this.lastTime = currentTime;
-        this.deltaTime = (currentTime - this.lastTime) / 1000;
-        this.lastTime = currentTime;
-        
-        if (this.state !== GameState.PLAYING) return;
-        
-        // Сохраняем предыдущую скорость для отладки
-        const previousVelocityY = this.player.velocityY;
-        
-        // Обновление игрока
-        const playerAlive = this.player.update(this.deltaTime);
-        if (!playerAlive) {
-            this.gameOver();
-            return;
-        }
-        
-        // Проверка столкновений с платформами
-        const collisionOccurred = this.platformManager.checkCollisions(this.player, currentTime);
-        if (collisionOccurred) {
-            // Записываем в историю коллизий
-            this.stats.collisionHistory.push({
-                time: currentTime,
-                frame: this.frameCount,
-                velocityBefore: previousVelocityY,
-                velocityAfter: this.player.velocityY
-            });
+        try {
+            this.currentTime = currentTime;
+            this.frameCount++;
+            this.stats.totalFrames++;
             
-            // Держим только последние 10 коллизий
-            if (this.stats.collisionHistory.length > 10) {
-                this.stats.collisionHistory.shift();
+            // Расчет времени между кадрами
+            if (this.lastTime === 0) this.lastTime = currentTime;
+            this.deltaTime = (currentTime - this.lastTime) / 1000;
+            this.lastTime = currentTime;
+            
+            if (this.state !== GameState.PLAYING) return;
+            
+            // Сохраняем предыдущую скорость для отладки
+            const previousVelocityY = this.player.velocityY;
+            
+            // Обновление игрока
+            const playerAlive = this.player.update(this.deltaTime);
+            if (!playerAlive) {
+                this.gameOver();
+                return;
             }
             
-            if (window.LOG_COLLISION) {
-                console.log('🔄 Processing platform collision...', {
+            // Проверка столкновений с платформами
+            const collisionOccurred = this.platformManager.checkCollisions(this.player, currentTime);
+            if (collisionOccurred) {
+                // Записываем в историю коллизий
+                this.stats.collisionHistory.push({
+                    time: currentTime,
                     frame: this.frameCount,
-                    velocityBefore: previousVelocityY.toFixed(2),
-                    velocityAfter: this.player.velocityY.toFixed(2),
-                    delta: (this.player.velocityY - previousVelocityY).toFixed(2)
+                    velocityBefore: previousVelocityY,
+                    velocityAfter: this.player.velocityY,
+                    playerY: this.player.y
                 });
+                
+                // Держим только последние 10 коллизий
+                if (this.stats.collisionHistory.length > 10) {
+                    this.stats.collisionHistory.shift();
+                }
+                
+                if (window.LOG_COLLISION) {
+                    console.log('🔄 Processing platform collision...', {
+                        frame: this.frameCount,
+                        velocityBefore: previousVelocityY.toFixed(2),
+                        velocityAfter: this.player.velocityY.toFixed(2),
+                        playerY: this.player.y.toFixed(1)
+                    });
+                }
+                
+                // Сбрасываем состояние игрока
+                this.player.onPlatformHit();
+                
+                // ВЫПОЛНЯЕМ ПРЫЖОК после приземления
+                const jumpResult = this.player.jump();
+                
+                if (window.LOG_JUMP && jumpResult) {
+                    console.log('🎯 Collision jump executed', {
+                        velocityY: this.player.velocityY,
+                        expected: CONFIG.PLAYER.JUMP_FORCE,
+                        match: this.player.velocityY === CONFIG.PLAYER.JUMP_FORCE
+                    });
+                }
             }
             
-            // Сбрасываем состояние игрока
-            this.player.onPlatformHit();
-            
-            // ВРУЧНУЮ вызываем прыжок здесь для полного контроля
-            const jumpResult = this.player.jump();
-            
-            if (window.LOG_JUMP && jumpResult) {
-                console.log('🎯 Collision jump executed', {
-                    velocityY: this.player.velocityY,
-                    expected: CONFIG.PLAYER.JUMP_FORCE,
-                    match: this.player.velocityY === CONFIG.PLAYER.JUMP_FORCE
-                });
+            // Обновление платформ и получение очков
+            const scrollAmount = this.platformManager.update(this.player.y, this.deltaTime);
+            if (scrollAmount > 0) {
+                this.distance += scrollAmount;
+                this.score += scrollAmount * CONFIG.GAME.SCORE_MULTIPLIER;
+                this.updateScoreDisplay();
             }
+            
+            // Обновление debug панели
+            if (window.DEBUG_MODE) {
+                this.updateDebugPanel();
+            }
+            
+            // Мониторинг аномалий
+            this.monitorAnomalies();
+            
+        } catch (error) {
+            console.error('❌ Error in game update:', error);
         }
-        
-        // Обновление платформ и получение очков
-        const scrollAmount = this.platformManager.update(this.player.y, this.deltaTime);
-        if (scrollAmount > 0) {
-            this.distance += scrollAmount;
-            this.score += scrollAmount * CONFIG.GAME.SCORE_MULTIPLIER;
-            this.updateScoreDisplay();
-        }
-        
-        // Обновление debug панели
-        if (window.DEBUG_MODE) {
-            this.updateDebugPanel();
-        }
-        
-        // Мониторинг аномалий
-        this.monitorAnomalies();
     }
 
     // Мониторинг аномалий
@@ -427,15 +617,11 @@ class DoodleJumpGame {
             });
         }
         
-        // Проверка на последовательные прыжки без коллизий
-        const recentJumps = this.player.stats.jumpHistory.slice(-2);
-        if (recentJumps.length === 2) {
-            const timeBetweenJumps = recentJumps[1].time - recentJumps[0].time;
-            if (timeBetweenJumps < 100) { // Меньше 100 мс между прыжками
-                console.warn('⚠️ RAPID SUCCESSIVE JUMPS!', {
-                    timeBetween: timeBetweenJumps + 'ms',
-                    jumps: recentJumps
-                });
+        // Проверка на застревание в падении
+        if (this.player.velocityY > 5 && this.frameCount > 60) {
+            const recentCollisions = this.stats.collisionHistory.slice(-5);
+            if (recentCollisions.length === 0) {
+                console.warn('⚠️ Player falling without collisions - possible platform miss');
             }
         }
     }
@@ -452,7 +638,8 @@ class DoodleJumpGame {
             <div>Frame: ${this.frameCount}</div>
             <div>State: ${this.state}</div>
             <div>Pos: ${playerInfo.position.x}, ${playerInfo.position.y}</div>
-            <div>Vel: ${playerInfo.velocity.y}</div>
+            <div>VelY: ${playerInfo.velocity.y}</div>
+            <div>OnPlatform: ${playerInfo.state.isOnPlatform}</div>
             <div>Jumps: ${playerInfo.stats.totalJumps}</div>
             <div>Platforms: ${platformInfo.totalPlatforms}</div>
             <div>Score: ${Math.floor(this.score)}</div>
@@ -461,18 +648,23 @@ class DoodleJumpGame {
 
     // Отрисовка игры
     draw() {
-        // Очистка canvas
-        this.clearCanvas();
-        
-        // Отрисовка фона
-        this.drawBackground();
-        
-        // Отрисовка игровых объектов
-        this.platformManager.draw(this.ctx, this.assets);
-        this.player.draw(this.ctx, this.assets);
-        
-        // Отрисовка UI поверх игры
-        this.drawUI();
+        try {
+            // Очистка canvas
+            this.clearCanvas();
+            
+            // Отрисовка фона
+            this.drawBackground();
+            
+            // Отрисовка игровых объектов
+            this.platformManager.draw(this.ctx, this.assets);
+            this.player.draw(this.ctx, this.assets);
+            
+            // Отрисовка UI поверх игры
+            this.drawUI();
+            
+        } catch (error) {
+            console.error('❌ Error in game draw:', error);
+        }
     }
 
     // Очистка canvas
@@ -500,11 +692,19 @@ class DoodleJumpGame {
         // Основной UI уже отрисовывается HTML-элементами
     }
 
-    // Основной игровой цикл
+    // Основной игровой цикл - ИСПРАВЛЕННАЯ ВЕРСИЯ
     gameLoop(currentTime = 0) {
-        this.update(currentTime);
-        this.draw();
-        this.animationId = requestAnimationFrame((time) => this.gameLoop(time));
+        try {
+            this.update(currentTime);
+            this.draw();
+            this.animationId = requestAnimationFrame((time) => this.gameLoop(time));
+        } catch (error) {
+            console.error('💥 Fatal error in game loop:', error);
+            // Попытка восстановить игровой цикл
+            setTimeout(() => {
+                this.animationId = requestAnimationFrame((time) => this.gameLoop(time));
+            }, 100);
+        }
     }
 
     // Поделиться результатом

@@ -1,3 +1,4 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -172,6 +173,39 @@
             pointer-events: none;
             z-index: 1000;
         }
+
+        #loadingScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.98);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            pointer-events: auto;
+            width: 90%;
+            max-width: 320px;
+            border: 3px solid #f39c12;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
     </style>
 </head>
 <body>
@@ -182,8 +216,17 @@
             <div id="scoreDisplay">Score: 0 | Best: 0</div>
             <div id="debugPanel"></div>
             
-            <div id="startScreen">
-                <h1>🎯 Doodle Jump v7.1</h1>
+            <div id="loadingScreen">
+                <h1>🎯 Doodle Jump</h1>
+                <h2>Loading...</h2>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="loadingText">Initializing game...</div>
+            </div>
+            
+            <div id="startScreen" style="display: none;">
+                <h1>🎯 Doodle Jump v7.2</h1>
                 <h2>Telegram Edition</h2>
                 <div class="highScore" id="menuHighScore">Best: 0</div>
                 <button id="startButton">🎮 Start Game</button>
@@ -203,21 +246,10 @@
         </div>
     </div>
 
-    <!-- Загрузка скриптов в правильном порядке -->
-    <script src="js/config.js"></script>
-    <script src="js/assets.js"></script>
-    <script src="js/platforms.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/telegram.js"></script>
+    <!-- Загрузка через единый загрузчик -->
+    <script src="js/load.js"></script>
 
     <script>
-        // Добавляем favicon
-        const link = document.createElement('link');
-        link.rel = 'icon';
-        link.href = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>';
-        document.head.appendChild(link);
-
         // Глобальные настройки отладки
         window.DEBUG_MODE = false;
         window.LOG_JUMP = true;
@@ -227,13 +259,33 @@
         // Инициализация после загрузки всех скриптов
         window.addEventListener('load', function() {
             console.log('=== DOODLE JUMP INITIALIZATION ===');
-            console.log('All resources loaded, initializing game...');
             
-            // Небольшая задержка для гарантии загрузки всех классов
+            // Показываем экран загрузки
+            const loadingScreen = document.getElementById('loadingScreen');
+            const startScreen = document.getElementById('startScreen');
+            const progressFill = document.getElementById('progressFill');
+            const loadingText = document.getElementById('loadingText');
+            
+            let loadProgress = 0;
+            const progressInterval = setInterval(() => {
+                loadProgress += Math.random() * 10;
+                if (loadProgress > 90) loadProgress = 90;
+                progressFill.style.width = loadProgress + '%';
+            }, 200);
+
+            // Инициализация игры с задержкой для гарантии загрузки всех классов
             setTimeout(function() {
                 if (typeof DoodleJumpGame !== 'undefined') {
-                    window.game = new DoodleJumpGame();
-                    console.log('✅ Game initialized successfully!');
+                    clearInterval(progressInterval);
+                    progressFill.style.width = '100%';
+                    loadingText.textContent = 'Ready!';
+                    
+                    setTimeout(() => {
+                        window.game = new DoodleJumpGame();
+                        loadingScreen.style.display = 'none';
+                        startScreen.style.display = 'block';
+                        console.log('✅ Game initialized successfully!');
+                    }, 500);
                     
                     // Глобальные команды для отладки
                     window.toggleDebug = function() {
@@ -243,23 +295,10 @@
                         console.log(`Debug mode: ${window.DEBUG_MODE}`);
                     };
                     
-                    window.logJump = function() {
-                        window.LOG_JUMP = !window.LOG_JUMP;
-                        console.log(`Jump logging: ${window.LOG_JUMP}`);
-                    };
-                    
-                    window.logCollision = function() {
-                        window.LOG_COLLISION = !window.LOG_COLLISION;
-                        console.log(`Collision logging: ${window.LOG_COLLISION}`);
-                    };
-                    
-                    console.log('🔧 Debug commands available:');
-                    console.log('toggleDebug() - Show/hide debug panel');
-                    console.log('logJump() - Toggle jump logging');
-                    console.log('logCollision() - Toggle collision logging');
-                    
                 } else {
                     console.error('❌ DoodleJumpGame class not found');
+                    loadingText.textContent = 'Error loading game. Please refresh.';
+                    clearInterval(progressInterval);
                 }
             }, 100);
         });

@@ -1,3 +1,4 @@
+// platforms.js
 // Класс платформы
 console.log('🔧 Loading Platform classes...');
 
@@ -135,29 +136,30 @@ class Platform {
         return false;
     }
 
-    // Проверка столкновения с игроком - УЛУЧШЕННАЯ ВЕРСИЯ
+    // Проверка столкновения с игроком - ИСПРАВЛЕННАЯ ВЕРСИЯ
     collidesWith(player, currentTime) {
-        // СУПЕР-ЗАЩИТА: проверка времени между коллизиями
+        // УМЕНЬШЕННОЕ время между коллизиями для лучшей отзывчивости
         const timeSinceCollision = currentTime - this.lastCollisionTime;
         if (timeSinceCollision < CONFIG.PLATFORMS.COLLISION_COOLDOWN) {
             if (window.LOG_COLLISION) console.log(`🚫 Collision blocked: cooldown (${timeSinceCollision}ms < ${CONFIG.PLATFORMS.COLLISION_COOLDOWN}ms)`);
             return false;
         }
         
-        // ОЧЕНЬ СТРОГАЯ проверка коллизии
+        // УПРОЩЕННАЯ И УЛУЧШЕННАЯ проверка коллизии
         const isColliding = 
-            player.x + player.width > this.x + 8 && // Больший отступ от краев
-            player.x < this.x + this.width - 8 &&
-            player.y + player.height > this.y &&
-            player.y + player.height < this.y + this.height + 5 && // Меньший запас
-            player.velocityY > 1.0; // Только при значительном падении
+            player.x + player.width > this.x + CONFIG.PLATFORMS.COLLISION_MARGIN &&
+            player.x < this.x + this.width - CONFIG.PLATFORMS.COLLISION_MARGIN &&
+            player.y + player.height >= this.y && // >= вместо > для лучшего определения
+            player.y + player.height <= this.y + this.height + 2 && // Увеличенный запас
+            player.velocityY >= 0; // Разрешаем коллизии при любой положительной скорости
         
         if (!isColliding) {
             return false;
         }
         
         // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: игрок действительно должен быть над платформой
-        if (player.y + player.height > this.y + this.height) {
+        const playerBottom = player.y + player.height;
+        if (playerBottom > this.y + this.height) {
             return false;
         }
         
@@ -168,7 +170,9 @@ class Platform {
         if (window.LOG_COLLISION) {
             console.log(`🎯 COLLISION #${this.collisionCount} on ${this.type} platform`, {
                 playerY: player.y.toFixed(1),
+                playerBottom: playerBottom.toFixed(1),
                 platformY: this.y,
+                platformTop: this.y + this.height,
                 velocityY: player.velocityY.toFixed(2),
                 timeSinceLast: timeSinceCollision + 'ms'
             });
@@ -195,34 +199,91 @@ class PlatformManager {
         this.scrollY = 0;
         this.highestPoint = CONFIG.CANVAS.HEIGHT;
         this.totalPlatformsGenerated = 0;
+        this.maxPlatforms = 50; // Ограничение для предотвращения утечек памяти
         this.generateInitialPlatforms();
     }
 
-    // Генерация начальных платформ
+    // platforms.js - УДАЛИТЬ рекурсивный вызов из generateInitialPlatforms
+    // Генерация начальных платформ - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ РЕКУРСИИ
     generateInitialPlatforms() {
         console.log('🏗️ Generating initial platforms');
         
-        // Стартовая платформа под игроком
-        this.platforms.push(new Platform(
-            CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2,
-            CONFIG.CANVAS.HEIGHT - 100,
-            PlatformType.NORMAL
-        ));
+        // Стартовая платформа под игроком - ФИКСИРОВАННАЯ ПОЗИЦИЯ
+        const startPlatformX = CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2;
+        const startPlatformY = CONFIG.GAME.START_PLATFORM_Y || CONFIG.CANVAS.HEIGHT - 100;
+        
+        // Проверяем что позиция валидная
+        if (isNaN(startPlatformY) || startPlatformY === undefined) {
+            console.error('❌ Invalid START_PLATFORM_Y in config:', startPlatformY);
+            // Используем fallback значение
+            const fallbackY = CONFIG.CANVAS.HEIGHT - 100;
+            console.log('🔄 Using fallback platform Y:', fallbackY);
+            
+            this.platforms.push(new Platform(
+                startPlatformX,
+                fallbackY,
+                PlatformType.NORMAL
+            ));
+        } else {
+            this.platforms.push(new Platform(
+                startPlatformX,
+                startPlatformY,
+                PlatformType.NORMAL
+            ));
+        }
 
-        // Генерация остальных платформ
-        let currentY = CONFIG.CANVAS.HEIGHT - 180;
+        console.log(`🎯 Start platform at (${startPlatformX}, ${this.platforms[0].y})`);
+
+        // Генерация остальных платформ - БОЛЕЕ ПЛОТНОЕ РАСПОЛОЖЕНИЕ
+        let currentY = this.platforms[0].y - 80; // Начинаем выше стартовой платформы
         
         for (let i = 0; i < CONFIG.PLATFORMS.START_COUNT - 1; i++) {
-            this.generatePlatform(currentY);
+            if (this.platforms.length < this.maxPlatforms) {
+                this.generatePlatform(currentY);
+            }
             currentY -= this.getRandomGap();
         }
         
         this.updateHighestPoint();
         console.log(`✅ Generated ${this.platforms.length} initial platforms`);
+        
+        // Дополнительная проверка
+        this.validatePlatforms();
+    }
+
+    // ДОБАВИТЬ метод validatePlatforms
+    validatePlatforms() {
+        let validCount = 0;
+        let invalidCount = 0;
+        
+        this.platforms.forEach((platform, index) => {
+            if (isNaN(platform.x) || isNaN(platform.y)) {
+                console.error(`❌ Invalid platform ${index}: x=${platform.x}, y=${platform.y}`);
+                invalidCount++;
+                
+                // Автоматическое исправление
+                if (isNaN(platform.y)) {
+                    platform.y = CONFIG.CANVAS.HEIGHT - 100 - (index * 100);
+                    console.log(`🔄 Fixed platform ${index} Y position: ${platform.y}`);
+                }
+            } else {
+                validCount++;
+            }
+        });
+        
+        if (invalidCount > 0) {
+            console.warn(`⚠️ Found ${invalidCount} invalid platforms, ${validCount} valid`);
+        } else {
+            console.log(`✅ All ${validCount} platforms are valid`);
+        }
     }
 
     // Генерация одной платформы на заданной высоте
     generatePlatform(y) {
+        if (this.platforms.length >= this.maxPlatforms) {
+            return; // Предотвращаем переполнение
+        }
+        
         const type = this.getRandomPlatformType();
         const x = this.getRandomPlatformX();
         
@@ -279,7 +340,7 @@ class PlatformManager {
         const highestPlatform = this.getHighestPlatform();
         if (highestPlatform && highestPlatform.y > CONFIG.PLATFORMS.MIN_GAP) {
             const targetY = highestPlatform.y - this.getRandomGap();
-            if (Math.random() < CONFIG.GAME.PLATFORM_SPAWN_RATE) {
+            if (Math.random() < CONFIG.GAME.PLATFORM_SPAWN_RATE && this.platforms.length < this.maxPlatforms) {
                 this.generatePlatform(targetY);
             }
         }
@@ -324,7 +385,7 @@ class PlatformManager {
         });
     }
 
-    // Проверка столкновений игрока с платформами
+    // Проверка столкновений игрока с платформами - ИСПРАВЛЕННАЯ
     checkCollisions(player, currentTime) {
         let collisionOccurred = false;
         let collisionPlatform = null;
@@ -362,13 +423,48 @@ class PlatformManager {
         return Math.max(0, CONFIG.CANVAS.HEIGHT - this.highestPoint);
     }
     
+    // platforms.js - ЗАМЕНИТЬ метод getStartPlatform
+    // Получение стартовой платформы - ИСПРАВЛЕННАЯ ВЕРСИЯ
+    getStartPlatform() {
+        if (this.platforms.length === 0) {
+            return null;
+        }
+        
+        // Ищем платформу, которая находится в районе стартовой позиции
+        const targetY = CONFIG.GAME.START_PLATFORM_Y || CONFIG.CANVAS.HEIGHT - 100;
+        
+        // Сортируем платформы по близости к целевой позиции
+        const sortedPlatforms = [...this.platforms].sort((a, b) => {
+            const diffA = Math.abs(a.y - targetY);
+            const diffB = Math.abs(b.y - targetY);
+            return diffA - diffB;
+        });
+        
+        // Берем самую близкую платформу
+        const closestPlatform = sortedPlatforms[0];
+        
+        // Проверяем, достаточно ли она близка (в пределах 50 пикселей)
+        if (Math.abs(closestPlatform.y - targetY) <= 50) {
+            return closestPlatform;
+        }
+        
+        // Если нет близких платформ, возвращаем первую
+        console.warn('⚠️ No platform found near start position, using first platform');
+        return this.platforms[0];
+    }
+    
     // Методы для отладки
     getDebugInfo() {
+        const startPlatform = this.getStartPlatform();
         return {
             totalPlatforms: this.platforms.length,
             platformsGenerated: this.totalPlatformsGenerated,
             highestPoint: Math.round(this.highestPoint),
-            scrollY: Math.round(this.scrollY)
+            scrollY: Math.round(this.scrollY),
+            startPlatform: startPlatform ? {
+                x: Math.round(startPlatform.x),
+                y: Math.round(startPlatform.y)
+            } : 'Not found'
         };
     }
 }
