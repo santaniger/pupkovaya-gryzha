@@ -1,4 +1,6 @@
 // Менеджер ресурсов игры
+console.log('🔧 Loading AssetManager...');
+
 class AssetManager {
     constructor() {
         this.images = {};
@@ -7,10 +9,14 @@ class AssetManager {
         this.loadProgress = 0;
         this.totalAssets = 0;
         this.loadedAssets = 0;
+        this.loadStartTime = Date.now();
     }
 
     // Загрузка всех изображений
     async loadAllAssets() {
+        console.log('🖼️ Starting asset loading...');
+        this.loadStartTime = Date.now();
+        
         // Сначала создаем спрайты через Data URLs (гарантированно работают)
         this.createSprites();
         
@@ -28,58 +34,66 @@ class AssetManager {
         try {
             await this.loadExternalImages(imageSources);
         } catch (error) {
-            console.log('Using generated sprites instead of external images');
+            console.log('⚠️ Using generated sprites instead of external images');
         }
         
         this.loaded = true;
-        console.log('All assets loaded successfully');
+        const loadTime = Date.now() - this.loadStartTime;
+        console.log(`✅ All assets loaded in ${loadTime}ms`);
+        return true;
     }
 
     // Создание спрайтов через Data URLs
     createSprites() {
-        console.log('Creating generated sprites...');
+        console.log('🎨 Creating generated sprites...');
         
         this.images['player'] = this.createPlayerSprite();
         this.images['background'] = this.createBackgroundSprite();
         this.images['platformNormal'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_NORMAL, 'normal');
         this.images['platformBreaking'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_BREAKING, 'breaking');
         this.images['platformMoving'] = this.createPlatformSprite(CONFIG.COLORS.PLATFORM_MOVING, 'moving');
+        
+        console.log('✅ Generated sprites created');
     }
 
     // Загрузка внешних изображений
     async loadExternalImages(imageSources) {
+        console.log('📥 Attempting to load external images...');
+        
         const loadPromises = Object.entries(imageSources).map(([name, src]) => 
             this.loadImage(name, src).catch(error => {
-                console.warn(`Failed to load ${src}, using generated sprite`);
+                console.warn(`❌ Failed to load ${src}, using generated sprite`);
                 // Если загрузка не удалась, используем уже созданный спрайт
             })
         );
 
         await Promise.allSettled(loadPromises);
+        console.log('✅ External images loading completed');
     }
 
     // Загрузка одного изображения
     loadImage(name, src) {
         return new Promise((resolve, reject) => {
-            // Добавляем timestamp для избежания кэширования
             const timestamp = Date.now();
             const url = `${src}?v=${timestamp}`;
             
+            console.log(`📥 Loading: ${src}`);
+            
             const img = new Image();
             img.onload = () => {
-                console.log(`Successfully loaded: ${src}`);
+                console.log(`✅ Successfully loaded: ${src}`);
                 this.images[name] = img;
                 resolve();
             };
             img.onerror = () => {
-                console.warn(`Failed to load: ${src}`);
+                console.warn(`❌ Failed to load: ${src}`);
                 reject(new Error(`Failed to load: ${src}`));
             };
             img.src = url;
             
-            // Таймаут для загрузки
             setTimeout(() => {
                 if (!img.complete) {
+                    console.warn(`⏰ Timeout loading: ${src}`);
                     reject(new Error(`Timeout loading: ${src}`));
                 }
             }, 2000);
@@ -140,13 +154,6 @@ class AssetManager {
         ctx.arc(size/2, size/2 + 5, 8, 0.2 * Math.PI, 0.8 * Math.PI);
         ctx.stroke();
         
-        // Блики
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(size/2 - 10, size/2 - 7, 2, 0, Math.PI * 2);
-        ctx.arc(size/2 + 6, size/2 - 7, 2, 0, Math.PI * 2);
-        ctx.fill();
-        
         return canvas;
     }
 
@@ -180,9 +187,7 @@ class AssetManager {
             { x: 280, y: 70, size: 55 },
             { x: 200, y: 200, size: 50 },
             { x: 80, y: 250, size: 60 },
-            { x: 300, y: 300, size: 40 },
-            { x: 120, y: 350, size: 55 },
-            { x: 250, y: 400, size: 45 }
+            { x: 300, y: 300, size: 40 }
         ];
         
         ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
@@ -194,20 +199,11 @@ class AssetManager {
     // Рисование пушистого облака
     drawFluffyCloud(ctx, x, y, size) {
         ctx.beginPath();
-        
-        // Основные части облака
         ctx.arc(x, y, size * 0.3, 0, Math.PI * 2);
         ctx.arc(x + size * 0.25, y - size * 0.15, size * 0.35, 0, Math.PI * 2);
         ctx.arc(x + size * 0.5, y, size * 0.4, 0, Math.PI * 2);
         ctx.arc(x + size * 0.3, y + size * 0.2, size * 0.3, 0, Math.PI * 2);
         ctx.arc(x - size * 0.1, y + size * 0.15, size * 0.25, 0, Math.PI * 2);
-        
-        ctx.fill();
-        
-        // Легкая тень для объема
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.beginPath();
-        ctx.arc(x + size * 0.2, y + size * 0.1, size * 0.25, 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -259,27 +255,18 @@ class AssetManager {
         
         switch(type) {
             case 'breaking':
-                // Трещины для ломающейся платформы
                 ctx.setLineDash([2, 3]);
                 ctx.strokeRect(8, 5, width - 16, height - 10);
-                ctx.beginPath();
-                ctx.moveTo(15, 8);
-                ctx.lineTo(25, 12);
-                ctx.moveTo(45, 6);
-                ctx.lineTo(55, 14);
-                ctx.stroke();
                 ctx.setLineDash([]);
                 break;
                 
             case 'moving':
-                // Стрелки для движущейся платформы
                 this.drawArrow(ctx, width * 0.25, height/2, 4, true);
                 this.drawArrow(ctx, width * 0.5, height/2, 4, true);
                 this.drawArrow(ctx, width * 0.75, height/2, 4, true);
                 break;
                 
             default:
-                // Текстура дерева для обычной платформы
                 for (let i = 8; i < width - 8; i += 6) {
                     ctx.beginPath();
                     ctx.moveTo(i, 5);
@@ -326,7 +313,7 @@ class AssetManager {
     // Получение изображения по имени
     getImage(name) {
         if (!this.images[name]) {
-            console.warn(`Image not found: ${name}`);
+            console.warn(`❌ Image not found: ${name}`);
         }
         return this.images[name];
     }
@@ -342,4 +329,4 @@ class AssetManager {
     }
 }
 
-console.log('AssetManager class defined');
+console.log('✅ AssetManager class defined');

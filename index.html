@@ -156,6 +156,22 @@
             font-size: 1.2em;
             margin: 10px 0;
         }
+
+        #debugPanel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 10px;
+            max-width: 200px;
+            display: none;
+            pointer-events: none;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -164,16 +180,16 @@
         
         <div id="uiOverlay">
             <div id="scoreDisplay">Score: 0 | Best: 0</div>
+            <div id="debugPanel"></div>
             
             <div id="startScreen">
-                <h1>🎯 Doodle Jump v6</h1>
+                <h1>🎯 Doodle Jump v7</h1>
                 <h2>Telegram Edition</h2>
                 <div class="highScore" id="menuHighScore">Best: 0</div>
                 <button id="startButton">🎮 Start Game</button>
                 <div class="controls">
                     <p><strong>Controls:</strong><br>
-                    ← → Arrow Keys or<br>
-                    Tap left/right side of screen</p>
+                    Touch and drag to move</p>
                 </div>
             </div>
             
@@ -202,17 +218,48 @@
         link.href = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>';
         document.head.appendChild(link);
 
+        // Глобальные настройки отладки
+        window.DEBUG_MODE = false;
+        window.LOG_JUMP = true;
+        window.LOG_COLLISION = true;
+        window.LOG_VELOCITY = false;
+
         // Инициализация после загрузки всех скриптов
         window.addEventListener('load', function() {
+            console.log('=== DOODLE JUMP INITIALIZATION ===');
             console.log('All resources loaded, initializing game...');
             
             // Небольшая задержка для гарантии загрузки всех классов
             setTimeout(function() {
                 if (typeof DoodleJumpGame !== 'undefined') {
                     window.game = new DoodleJumpGame();
-                    console.log('Game initialized successfully!');
+                    console.log('✅ Game initialized successfully!');
+                    
+                    // Глобальные команды для отладки
+                    window.toggleDebug = function() {
+                        window.DEBUG_MODE = !window.DEBUG_MODE;
+                        const panel = document.getElementById('debugPanel');
+                        panel.style.display = window.DEBUG_MODE ? 'block' : 'none';
+                        console.log(`Debug mode: ${window.DEBUG_MODE}`);
+                    };
+                    
+                    window.logJump = function() {
+                        window.LOG_JUMP = !window.LOG_JUMP;
+                        console.log(`Jump logging: ${window.LOG_JUMP}`);
+                    };
+                    
+                    window.logCollision = function() {
+                        window.LOG_COLLISION = !window.LOG_COLLISION;
+                        console.log(`Collision logging: ${window.LOG_COLLISION}`);
+                    };
+                    
+                    console.log('🔧 Debug commands available:');
+                    console.log('toggleDebug() - Show/hide debug panel');
+                    console.log('logJump() - Toggle jump logging');
+                    console.log('logCollision() - Toggle collision logging');
+                    
                 } else {
-                    console.error('DoodleJumpGame class not found');
+                    console.error('❌ DoodleJumpGame class not found');
                 }
             }, 100);
         });

@@ -1,8 +1,9 @@
 // Основной класс игры Doodle Jump
-// Основной класс игры Doodle Jump
+console.log('🔧 Loading DoodleJumpGame class...');
+
 class DoodleJumpGame {
     constructor() {
-        console.log('Initializing DoodleJumpGame...');
+        console.log('🎮 Initializing DoodleJumpGame...');
         
         // Инициализация основных компонентов
         this.canvas = document.getElementById('gameCanvas');
@@ -26,19 +27,32 @@ class DoodleJumpGame {
         this.lastTime = 0;
         this.deltaTime = 0;
         this.currentTime = 0;
+        this.frameCount = 0;
+        
+        // Статистика для отладки
+        this.stats = {
+            totalFrames: 0,
+            collisionHistory: [],
+            jumpSequence: [],
+            gameStartTime: 0
+        };
         
         // Инициализация
         this.init();
     }
 
-    // Инициализация игры
+    // В методе init исправляем загрузку ассетов
     async init() {
-        console.log('Starting game initialization...');
+        console.log('🚀 Starting game initialization...');
         
         try {
             // Загрузка ресурсов
-            await this.assets.loadAllAssets();
-            console.log('Assets loaded successfully');
+            if (this.assets && typeof this.assets.loadAllAssets === 'function') {
+                await this.assets.loadAllAssets();
+                console.log('✅ Assets loaded successfully');
+            } else {
+                console.warn('⚠️ AssetManager not available, using fallback graphics');
+            }
             
             // Настройка управления
             this.setupControls();
@@ -49,15 +63,17 @@ class DoodleJumpGame {
             // Запуск игрового цикла
             this.gameLoop();
             
-            console.log('Game initialized successfully!');
+            console.log('🎉 Game initialized successfully!');
             
         } catch (error) {
-            console.error('Error during game initialization:', error);
+            console.error('❌ Error during game initialization:', error);
         }
     }
 
     // Настройка элементов управления
     setupControls() {
+        console.log('🎛️ Setting up controls...');
+        
         // Клавиатура (резервное управление)
         document.addEventListener('keydown', (e) => {
             this.handleKeyDown(e);
@@ -75,6 +91,8 @@ class DoodleJumpGame {
         
         // Кнопки интерфейса
         this.setupButtonHandlers();
+        
+        console.log('✅ Controls setup complete');
     }
 
     // Обработка нажатия клавиш
@@ -111,9 +129,8 @@ class DoodleJumpGame {
         }
     }
 
-    // Настройка сенсорного управления - ПЕРЕРАБОТАННАЯ ВЕРСИЯ
+    // Настройка сенсорного управления
     setupTouchControls() {
-        // Начало касания
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (this.state === GameState.PLAYING && e.touches.length > 0) {
@@ -123,11 +140,9 @@ class DoodleJumpGame {
             }
         });
         
-        // Движение пальца
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             if (this.state === GameState.PLAYING && this.isTouching) {
-                // Находим наш касание по идентификатору
                 for (let touch of e.touches) {
                     if (touch.identifier === this.touchId) {
                         this.handleTouch(touch);
@@ -137,7 +152,6 @@ class DoodleJumpGame {
             }
         });
         
-        // Конец касания
         this.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             if (this.state === GameState.PLAYING) {
@@ -147,7 +161,6 @@ class DoodleJumpGame {
             }
         });
         
-        // Отмена касания (например, вызов уведомления)
         this.canvas.addEventListener('touchcancel', (e) => {
             e.preventDefault();
             if (this.state === GameState.PLAYING) {
@@ -157,7 +170,6 @@ class DoodleJumpGame {
             }
         });
         
-        // Также обрабатываем клики для меню на мобильных устройствах
         this.canvas.addEventListener('click', (e) => {
             if (this.state === GameState.MENU) {
                 this.startGame();
@@ -165,15 +177,12 @@ class DoodleJumpGame {
         });
     }
 
-    // Обработка касания - ПЕРЕРАБОТАННАЯ ВЕРСИЯ
+    // Обработка касания
     handleTouch(touch) {
         const canvasRect = this.canvas.getBoundingClientRect();
         const touchX = touch.clientX - canvasRect.left;
         
-        // Ограничиваем позицию в пределах canvas
         const clampedX = Math.max(0, Math.min(touchX, this.canvas.width));
-        
-        // Устанавливаем целевую позицию для игрока
         this.player.setTargetPosition(clampedX);
     }
 
@@ -182,7 +191,6 @@ class DoodleJumpGame {
         if (window.DeviceOrientationEvent) {
             window.addEventListener('deviceorientation', (e) => {
                 if (this.state === GameState.PLAYING && !this.isTouching) {
-                    // Используем гироскоп только если нет активного касания
                     this.player.handleDeviceTilt(e.gamma);
                 }
             });
@@ -195,7 +203,6 @@ class DoodleJumpGame {
         document.getElementById('restartButton').addEventListener('click', () => this.restartGame());
         document.getElementById('shareButton').addEventListener('click', () => this.shareScore());
         
-        // Также добавляем touch события для кнопок для лучшей мобильной поддержки
         document.getElementById('startButton').addEventListener('touchend', (e) => {
             e.preventDefault();
             this.startGame();
@@ -215,8 +222,6 @@ class DoodleJumpGame {
     // Настройка UI
     setupUI() {
         this.updateHighScoreDisplay();
-        
-        // Добавляем инструкции для мобильных устройств
         this.addMobileInstructions();
     }
 
@@ -230,6 +235,8 @@ class DoodleJumpGame {
 
     // Начало игры
     startGame() {
+        console.log('🎮 Starting new game...');
+        
         this.state = GameState.PLAYING;
         this.score = 0;
         this.distance = 0;
@@ -238,16 +245,23 @@ class DoodleJumpGame {
         this.isTouching = false;
         this.touchId = null;
         
+        // Сброс статистики
+        this.stats.gameStartTime = Date.now();
+        this.stats.collisionHistory = [];
+        this.stats.jumpSequence = [];
+        this.frameCount = 0;
+        
         // Обновление интерфейса
         document.getElementById('startScreen').style.display = 'none';
         document.getElementById('gameOverScreen').style.display = 'none';
         
         this.updateScoreDisplay();
-        console.log('Game started!');
+        console.log('✅ Game started!');
     }
 
     // Рестарт игры
     restartGame() {
+        console.log('🔄 Restarting game...');
         this.startGame();
     }
 
@@ -262,6 +276,13 @@ class DoodleJumpGame {
 
     // Конец игры
     gameOver() {
+        console.log('💀 Game Over!', {
+            score: Math.floor(this.score),
+            distance: Math.floor(this.distance),
+            totalJumps: this.player.stats.totalJumps,
+            playTime: Date.now() - this.stats.gameStartTime
+        });
+        
         this.state = GameState.GAME_OVER;
         this.isTouching = false;
         this.touchId = null;
@@ -280,8 +301,6 @@ class DoodleJumpGame {
         
         // Отправка результата в Telegram
         this.sendTelegramScore();
-        
-        console.log('Game over! Score:', this.score);
     }
 
     // Отправка счета в Telegram
@@ -316,9 +335,11 @@ class DoodleJumpGame {
         }
     }
 
-    // В методе update УБИРАЕМ ВСЯКОЕ ИЗМЕНЕНИЕ ФИЗИКИ
+    // Обновление игровой логики
     update(currentTime) {
         this.currentTime = currentTime;
+        this.frameCount++;
+        this.stats.totalFrames++;
         
         // Расчет времени между кадрами
         if (this.lastTime === 0) this.lastTime = currentTime;
@@ -326,6 +347,9 @@ class DoodleJumpGame {
         this.lastTime = currentTime;
         
         if (this.state !== GameState.PLAYING) return;
+        
+        // Сохраняем предыдущую скорость для отладки
+        const previousVelocityY = this.player.velocityY;
         
         // Обновление игрока
         const playerAlive = this.player.update(this.deltaTime);
@@ -335,8 +359,43 @@ class DoodleJumpGame {
         }
         
         // Проверка столкновений с платформами
-        if (this.platformManager.checkCollisions(this.player, currentTime)) {
+        const collisionOccurred = this.platformManager.checkCollisions(this.player, currentTime);
+        if (collisionOccurred) {
+            // Записываем в историю коллизий
+            this.stats.collisionHistory.push({
+                time: currentTime,
+                frame: this.frameCount,
+                velocityBefore: previousVelocityY,
+                velocityAfter: this.player.velocityY
+            });
+            
+            // Держим только последние 10 коллизий
+            if (this.stats.collisionHistory.length > 10) {
+                this.stats.collisionHistory.shift();
+            }
+            
+            if (window.LOG_COLLISION) {
+                console.log('🔄 Processing platform collision...', {
+                    frame: this.frameCount,
+                    velocityBefore: previousVelocityY.toFixed(2),
+                    velocityAfter: this.player.velocityY.toFixed(2),
+                    delta: (this.player.velocityY - previousVelocityY).toFixed(2)
+                });
+            }
+            
+            // Сбрасываем состояние игрока
             this.player.onPlatformHit();
+            
+            // ВРУЧНУЮ вызываем прыжок здесь для полного контроля
+            const jumpResult = this.player.jump();
+            
+            if (window.LOG_JUMP && jumpResult) {
+                console.log('🎯 Collision jump executed', {
+                    velocityY: this.player.velocityY,
+                    expected: CONFIG.PLAYER.JUMP_FORCE,
+                    match: this.player.velocityY === CONFIG.PLAYER.JUMP_FORCE
+                });
+            }
         }
         
         // Обновление платформ и получение очков
@@ -347,24 +406,57 @@ class DoodleJumpGame {
             this.updateScoreDisplay();
         }
         
-        // УБРАН ВЫЗОВ increaseDifficulty() - физика не меняется во время игры!
-    }
-
-    // УБИРАЕМ метод increaseDifficulty полностью или оставляем пустым
-    increaseDifficulty() {
-        // НИЧЕГО НЕ ДЕЛАЕМ - физика постоянна
-    }
-
-    // В методе update закомментируем увеличение сложности:
-    increaseDifficulty() {
-        // ВРЕМЕННО ОТКЛЮЧАЕМ УВЕЛИЧЕНИЕ СЛОЖНОСТИ
-        // const difficulty = 1 + (this.distance * CONFIG.GAME.DIFFICULTY_INCREASE);
-        // if (difficulty < 1.5) {
-        //     CONFIG.PLAYER.GRAVITY = 0.5 * difficulty;
-        // }
+        // Обновление debug панели
+        if (window.DEBUG_MODE) {
+            this.updateDebugPanel();
+        }
         
-        // Фиксированная гравитация
-        CONFIG.PLAYER.GRAVITY = 0.5;
+        // Мониторинг аномалий
+        this.monitorAnomalies();
+    }
+
+    // Мониторинг аномалий
+    monitorAnomalies() {
+        // Проверка на аномальную скорость
+        if (Math.abs(this.player.velocityY) > 15) {
+            console.error('🚨 VELOCITY ANOMALY DETECTED!', {
+                velocityY: this.player.velocityY,
+                frame: this.frameCount,
+                jumpCount: this.player.jumpCount,
+                recentJumps: this.player.stats.jumpHistory.slice(-3)
+            });
+        }
+        
+        // Проверка на последовательные прыжки без коллизий
+        const recentJumps = this.player.stats.jumpHistory.slice(-2);
+        if (recentJumps.length === 2) {
+            const timeBetweenJumps = recentJumps[1].time - recentJumps[0].time;
+            if (timeBetweenJumps < 100) { // Меньше 100 мс между прыжками
+                console.warn('⚠️ RAPID SUCCESSIVE JUMPS!', {
+                    timeBetween: timeBetweenJumps + 'ms',
+                    jumps: recentJumps
+                });
+            }
+        }
+    }
+
+    // Обновление debug панели
+    updateDebugPanel() {
+        const debugPanel = document.getElementById('debugPanel');
+        if (!debugPanel) return;
+        
+        const playerInfo = this.player.getDebugInfo();
+        const platformInfo = this.platformManager.getDebugInfo();
+        
+        debugPanel.innerHTML = `
+            <div>Frame: ${this.frameCount}</div>
+            <div>State: ${this.state}</div>
+            <div>Pos: ${playerInfo.position.x}, ${playerInfo.position.y}</div>
+            <div>Vel: ${playerInfo.velocity.y}</div>
+            <div>Jumps: ${playerInfo.stats.totalJumps}</div>
+            <div>Platforms: ${platformInfo.totalPlatforms}</div>
+            <div>Score: ${Math.floor(this.score)}</div>
+        `;
     }
 
     // Отрисовка игры
@@ -388,10 +480,8 @@ class DoodleJumpGame {
         const background = this.assets.getImage('background');
         
         if (background && background.complete && background.naturalWidth !== 0) {
-            // Используем PNG фон
             this.ctx.drawImage(background, 0, 0, this.canvas.width, this.canvas.height);
         } else {
-            // Fallback градиентный фон
             const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
             gradient.addColorStop(0, CONFIG.COLORS.BACKGROUND_TOP);
             gradient.addColorStop(1, CONFIG.COLORS.BACKGROUND_BOTTOM);
@@ -407,20 +497,7 @@ class DoodleJumpGame {
 
     // Отрисовка UI
     drawUI() {
-        // Отладочная информация
-        if (window.DEBUG) {
-            this.drawDebugInfo();
-        }
-    }
-
-    // Отладочная информация
-    drawDebugInfo() {
-        this.ctx.fillStyle = 'red';
-        this.ctx.font = '12px Arial';
-        this.ctx.fillText(`Touch: ${this.isTouching}`, 10, 20);
-        this.ctx.fillText(`State: ${this.state}`, 10, 35);
-        this.ctx.fillText(`Player X: ${Math.round(this.player.x)}`, 10, 50);
-        this.ctx.fillText(`Player Y: ${Math.round(this.player.y)}`, 10, 65);
+        // Основной UI уже отрисовывается HTML-элементами
     }
 
     // Основной игровой цикл
@@ -473,6 +550,22 @@ class DoodleJumpGame {
             cancelAnimationFrame(this.animationId);
         }
     }
+    
+    // Методы для отладки
+    getDebugStats() {
+        return {
+            game: {
+                state: this.state,
+                score: this.score,
+                distance: this.distance,
+                frameCount: this.frameCount
+            },
+            player: this.player.getDebugInfo(),
+            platforms: this.platformManager.getDebugInfo(),
+            collisions: this.stats.collisionHistory.length,
+            recentCollisions: this.stats.collisionHistory.slice(-3)
+        };
+    }
 }
 
-console.log('DoodleJumpGame class defined');
+console.log('✅ DoodleJumpGame class defined');

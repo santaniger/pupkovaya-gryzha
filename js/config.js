@@ -1,4 +1,6 @@
 // Конфигурация игры Doodle Jump
+console.log('🔧 Loading game configuration...');
+
 const CONFIG = {
     // Настройки canvas
     CANVAS: {
@@ -6,34 +8,37 @@ const CONFIG = {
         HEIGHT: 600
     },
     
-    // Настройки игрока - ФИНАЛЬНЫЕ ЗНАЧЕНИЯ
+    // Настройки игрока - МИНИМАЛЬНАЯ СИЛА ПРЫЖКА
     PLAYER: {
         WIDTH: 40,
         HEIGHT: 40,
-        JUMP_FORCE: -9.5, // Фиксированное значение
-        GRAVITY: 0.5,     // Фиксированная гравитация
+        JUMP_FORCE: -8.0, // МИНИМАЛЬНАЯ СИЛА
+        GRAVITY: 0.5,
         MAX_SPEED: 4,
         ACCELERATION: 0.3,
-        FRICTION: 0.85
+        FRICTION: 0.85,
+        MAX_FALL_SPEED: 10 // Максимальная скорость падения
     },
     
     // Настройки платформ
     PLATFORMS: {
         WIDTH: 70,
         HEIGHT: 20,
-        MIN_GAP: 90,
-        MAX_GAP: 140,
+        MIN_GAP: 100,
+        MAX_GAP: 150,
         START_COUNT: 10,
         MOVE_SPEED: 1.5,
-        BREAKING_TIME: 0.5
+        BREAKING_TIME: 0.5,
+        COLLISION_COOLDOWN: 500 // мс между коллизиями
     },
     
-    // Настройки игры - УБИРАЕМ УВЕЛИЧЕНИЕ СЛОЖНОСТИ
+    // Настройки игры
     GAME: {
         INITIAL_SCROLL_THRESHOLD: 200,
         SCORE_MULTIPLIER: 0.1,
         DIFFICULTY_INCREASE: 0, // НУЛЕВОЕ увеличение сложности
-        PLATFORM_SPAWN_RATE: 0.7
+        PLATFORM_SPAWN_RATE: 0.7,
+        JUMP_COOLDOWN: 300 // мс между прыжками
     },
     
     // Цвета
@@ -75,4 +80,8 @@ const PlatformType = {
     MOVING: 'moving'
 };
 
-console.log('Config loaded successfully');
+console.log('✅ Config loaded successfully');
+console.log('   Jump Force:', CONFIG.PLAYER.JUMP_FORCE);
+console.log('   Gravity:', CONFIG.PLAYER.GRAVITY);
+console.log('   Collision Cooldown:', CONFIG.PLATFORMS.COLLISION_COOLDOWN + 'ms');
+console.log('   Jump Cooldown:', CONFIG.GAME.JUMP_COOLDOWN + 'ms');

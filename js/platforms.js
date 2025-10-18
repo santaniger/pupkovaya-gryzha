@@ -1,4 +1,6 @@
 // Класс платформы
+console.log('🔧 Loading Platform classes...');
+
 class Platform {
     constructor(x, y, type = PlatformType.NORMAL) {
         this.x = x;
@@ -20,6 +22,9 @@ class Platform {
         }
         
         this.lastCollisionTime = 0;
+        this.collisionCount = 0;
+        
+        console.log(`➕ Created ${type} platform at (${Math.round(x)}, ${Math.round(y)})`);
     }
 
     // Обновление состояния платформы
@@ -37,6 +42,7 @@ class Platform {
             this.breakProgress = this.breakTimer / CONFIG.PLATFORMS.BREAKING_TIME;
             
             if (this.breakProgress >= 1) {
+                if (window.LOG_COLLISION) console.log('💥 Platform destroyed');
                 return false;
             }
         }
@@ -76,7 +82,7 @@ class Platform {
         ctx.restore();
         
         // Отладочная отрисовка
-        if (window.DEBUG) {
+        if (window.DEBUG_MODE) {
             this.drawDebug(ctx);
         }
     }
@@ -113,8 +119,8 @@ class Platform {
         const timeSinceCollision = Date.now() - this.lastCollisionTime;
         if (timeSinceCollision < 1000) {
             ctx.fillStyle = 'white';
-            ctx.font = '10px Arial';
-            ctx.fillText(`${timeSinceCollision}ms`, this.x + 5, this.y + 12);
+            ctx.font = '8px Arial';
+            ctx.fillText(`${this.collisionCount}`, this.x + 5, this.y + 12);
         }
     }
 
@@ -123,16 +129,18 @@ class Platform {
         if (this.type === PlatformType.BREAKING && !this.breaking) {
             this.breaking = true;
             this.breakTimer = 0;
+            if (window.LOG_COLLISION) console.log('🟡 Breaking platform activated');
             return true;
         }
         return false;
     }
 
-    // В методе collidesWith улучшаем защиту
-    // В методе collidesWith добавляем МАКСИМАЛЬНУЮ защиту
+    // Проверка столкновения с игроком - УЛУЧШЕННАЯ ВЕРСИЯ
     collidesWith(player, currentTime) {
-        // СУПЕР-ЗАЩИТА: 500 мс между коллизиями
-        if (currentTime - this.lastCollisionTime < 500) {
+        // СУПЕР-ЗАЩИТА: проверка времени между коллизиями
+        const timeSinceCollision = currentTime - this.lastCollisionTime;
+        if (timeSinceCollision < CONFIG.PLATFORMS.COLLISION_COOLDOWN) {
+            if (window.LOG_COLLISION) console.log(`🚫 Collision blocked: cooldown (${timeSinceCollision}ms < ${CONFIG.PLATFORMS.COLLISION_COOLDOWN}ms)`);
             return false;
         }
         
@@ -148,14 +156,24 @@ class Platform {
             return false;
         }
         
-        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: игрок действительно должен прыгнуть
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: игрок действительно должен быть над платформой
         if (player.y + player.height > this.y + this.height) {
             return false;
         }
         
+        // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - КОЛЛИЗИЯ ПРОИСХОДИТ
         this.lastCollisionTime = currentTime;
+        this.collisionCount++;
         
-        console.log(`Platform collision at ${currentTime}`);
+        if (window.LOG_COLLISION) {
+            console.log(`🎯 COLLISION #${this.collisionCount} on ${this.type} platform`, {
+                playerY: player.y.toFixed(1),
+                platformY: this.y,
+                velocityY: player.velocityY.toFixed(2),
+                timeSinceLast: timeSinceCollision + 'ms'
+            });
+        }
+        
         return true;
     }
 
@@ -172,14 +190,18 @@ class Platform {
 // Менеджер платформ
 class PlatformManager {
     constructor() {
+        console.log('🔧 Initializing PlatformManager');
         this.platforms = [];
         this.scrollY = 0;
         this.highestPoint = CONFIG.CANVAS.HEIGHT;
+        this.totalPlatformsGenerated = 0;
         this.generateInitialPlatforms();
     }
 
     // Генерация начальных платформ
     generateInitialPlatforms() {
+        console.log('🏗️ Generating initial platforms');
+        
         // Стартовая платформа под игроком
         this.platforms.push(new Platform(
             CONFIG.CANVAS.WIDTH / 2 - CONFIG.PLATFORMS.WIDTH / 2,
@@ -196,6 +218,7 @@ class PlatformManager {
         }
         
         this.updateHighestPoint();
+        console.log(`✅ Generated ${this.platforms.length} initial platforms`);
     }
 
     // Генерация одной платформы на заданной высоте
@@ -204,6 +227,7 @@ class PlatformManager {
         const x = this.getRandomPlatformX();
         
         this.platforms.push(new Platform(x, y, type));
+        this.totalPlatformsGenerated++;
     }
 
     // Получение случайного типа платформы
@@ -236,9 +260,15 @@ class PlatformManager {
     // Обновление состояния всех платформ
     update(playerY, deltaTime) {
         // Обновляем каждую платформу и удаляем разрушенные
+        const initialCount = this.platforms.length;
         this.platforms = this.platforms.filter(platform => {
             return platform.update(deltaTime);
         });
+        
+        const removedCount = initialCount - this.platforms.length;
+        if (removedCount > 0 && window.LOG_COLLISION) {
+            console.log(`🗑️ Removed ${removedCount} platforms`);
+        }
 
         // Удаляем платформы далеко за пределами экрана
         this.platforms = this.platforms.filter(platform => {
@@ -297,16 +327,20 @@ class PlatformManager {
     // Проверка столкновений игрока с платформами
     checkCollisions(player, currentTime) {
         let collisionOccurred = false;
+        let collisionPlatform = null;
         
         for (const platform of this.platforms) {
             if (platform.collidesWith(player, currentTime)) {
-                // Запускаем разрушение если это ломающаяся платформа
-                if (platform.type === PlatformType.BREAKING) {
-                    platform.startBreaking();
-                }
-                
                 collisionOccurred = true;
+                collisionPlatform = platform;
                 break; // Останавливаемся после первой коллизии
+            }
+        }
+        
+        if (collisionOccurred && collisionPlatform) {
+            // Запускаем разрушение если это ломающаяся платформа
+            if (collisionPlatform.type === PlatformType.BREAKING) {
+                collisionPlatform.startBreaking();
             }
         }
         
@@ -315,9 +349,11 @@ class PlatformManager {
 
     // Сброс менеджера платформ
     reset() {
+        console.log('🔄 Resetting PlatformManager');
         this.platforms = [];
         this.scrollY = 0;
         this.highestPoint = CONFIG.CANVAS.HEIGHT;
+        this.totalPlatformsGenerated = 0;
         this.generateInitialPlatforms();
     }
 
@@ -325,6 +361,16 @@ class PlatformManager {
     getProgress() {
         return Math.max(0, CONFIG.CANVAS.HEIGHT - this.highestPoint);
     }
+    
+    // Методы для отладки
+    getDebugInfo() {
+        return {
+            totalPlatforms: this.platforms.length,
+            platformsGenerated: this.totalPlatformsGenerated,
+            highestPoint: Math.round(this.highestPoint),
+            scrollY: Math.round(this.scrollY)
+        };
+    }
 }
 
-console.log('Platform classes defined');
+console.log('✅ Platform classes defined');

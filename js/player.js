@@ -1,6 +1,9 @@
 // Класс игрока
+console.log('🔧 Loading Player class...');
+
 class Player {
     constructor() {
+        console.log('🎮 Creating new Player instance');
         this.reset();
         this.input = {
             left: false,
@@ -8,10 +11,19 @@ class Player {
         };
         this.lastDirection = 'right';
         this.targetX = null;
+        
+        // Статистика для отладки
+        this.stats = {
+            totalJumps: 0,
+            jumpHistory: [],
+            velocityHistory: []
+        };
     }
 
     // Сброс состояния игрока
     reset() {
+        console.log('🔄 Resetting player state');
+        
         this.width = CONFIG.PLAYER.WIDTH;
         this.height = CONFIG.PLAYER.HEIGHT;
         this.x = CONFIG.CANVAS.WIDTH / 2 - this.width / 2;
@@ -27,16 +39,27 @@ class Player {
         this.lastJumpTime = 0;
         this.canJump = true;
         this.jumpCooldown = false;
+        this.jumpInProgress = false;
+        
+        // Сбрасываем статистику
+        this.stats.totalJumps = 0;
+        this.stats.jumpHistory = [];
+        this.stats.velocityHistory = [];
+        
+        console.log('✅ Player reset complete');
     }
 
     // Обновление состояния игрока
     update(deltaTime) {
+        // Сохраняем предыдущую скорость для отладки
+        const previousVelocityY = this.velocityY;
+        
         // Применяем гравитацию
         this.velocityY += CONFIG.PLAYER.GRAVITY;
         
         // СИЛЬНОЕ ограничение максимальной скорости падения
-        if (this.velocityY > 10) {
-            this.velocityY = 10;
+        if (this.velocityY > CONFIG.PLAYER.MAX_FALL_SPEED) {
+            this.velocityY = CONFIG.PLAYER.MAX_FALL_SPEED;
         }
         
         // Обработка ввода для движения
@@ -56,8 +79,28 @@ class Player {
             this.canJump = true;
         }
         
+        // Логирование аномальной скорости
+        if (Math.abs(this.velocityY) > 12 && window.LOG_VELOCITY) {
+            console.warn(`🚨 HIGH VELOCITY: ${this.velocityY.toFixed(2)} (was ${previousVelocityY.toFixed(2)})`);
+        }
+        
+        // Сохраняем историю скорости для отладки
+        if (window.DEBUG_MODE) {
+            this.stats.velocityHistory.push({
+                time: Date.now(),
+                velocityY: this.velocityY,
+                y: this.y
+            });
+            
+            // Держим только последние 50 записей
+            if (this.stats.velocityHistory.length > 50) {
+                this.stats.velocityHistory.shift();
+            }
+        }
+        
         // Проверка выхода за нижнюю границу
         if (this.y > CONFIG.CANVAS.HEIGHT + 100) {
+            console.log('💀 Player fell off screen');
             return false;
         }
         
@@ -135,7 +178,7 @@ class Player {
         }
         
         // Отладочная информация
-        if (window.DEBUG) {
+        if (window.DEBUG_MODE) {
             this.drawDebugInfo(ctx);
         }
     }
@@ -192,14 +235,20 @@ class Player {
     // Отладочная информация
     drawDebugInfo(ctx) {
         ctx.fillStyle = 'red';
-        ctx.font = '12px Arial';
+        ctx.font = '10px Arial';
         ctx.fillText(`X: ${Math.round(this.x)}`, this.x, this.y - 10);
-        ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 25);
-        ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 40);
-        ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 55);
-        ctx.fillText(`Jumps: ${this.jumpCount}`, this.x, this.y - 70);
-        ctx.fillText(`CanJump: ${this.canJump}`, this.x, this.y - 85);
-        ctx.fillText(`Cooldown: ${this.jumpCooldown}`, this.x, this.y - 100);
+        ctx.fillText(`Y: ${Math.round(this.y)}`, this.x, this.y - 22);
+        ctx.fillText(`VX: ${this.velocityX.toFixed(1)}`, this.x, this.y - 34);
+        ctx.fillText(`VY: ${this.velocityY.toFixed(1)}`, this.x, this.y - 46);
+        ctx.fillText(`Jumps: ${this.jumpCount}/${this.maxJumps}`, this.x, this.y - 58);
+        ctx.fillText(`CanJump: ${this.canJump}`, this.x, this.y - 70);
+        ctx.fillText(`Cooldown: ${this.jumpCooldown}`, this.x, this.y - 82);
+        
+        // Показываем последние 3 прыжка
+        const recentJumps = this.stats.jumpHistory.slice(-3);
+        recentJumps.forEach((jump, index) => {
+            ctx.fillText(`Jump${index}: ${jump.velocityY.toFixed(1)}`, this.x, this.y - (94 + index * 12));
+        });
     }
 
     // Прыжок - УЛЬТРА-ЗАЩИЩЕННАЯ ВЕРСИЯ
@@ -208,24 +257,33 @@ class Player {
         
         // СУПЕР-ЗАЩИТА: проверяем ВСЕ возможные условия
         if (this.jumpCooldown) {
-            console.log('Jump blocked: cooldown');
+            if (window.LOG_JUMP) console.log('🚫 Jump blocked: cooldown active');
             return false;
         }
         
         if (!this.canJump) {
-            console.log('Jump blocked: cannot jump');
+            if (window.LOG_JUMP) console.log('🚫 Jump blocked: cannot jump now');
             return false;
         }
         
-        if (currentTime - this.lastJumpTime < 300) { // Увеличили до 300 мс
-            console.log('Jump blocked: too fast');
+        if (this.jumpInProgress) {
+            if (window.LOG_JUMP) console.log('🚫 Jump blocked: jump already in progress');
+            return false;
+        }
+        
+        const timeSinceLastJump = currentTime - this.lastJumpTime;
+        if (timeSinceLastJump < CONFIG.GAME.JUMP_COOLDOWN) {
+            if (window.LOG_JUMP) console.log(`🚫 Jump blocked: too fast (${timeSinceLastJump}ms < ${CONFIG.GAME.JUMP_COOLDOWN}ms)`);
             return false;
         }
         
         if (this.jumpCount >= this.maxJumps) {
-            console.log('Jump blocked: max jumps reached');
+            if (window.LOG_JUMP) console.log('🚫 Jump blocked: max jumps reached');
             return false;
         }
+        
+        // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - ВЫПОЛНЯЕМ ПРЫЖОК
+        this.jumpInProgress = true;
         
         // АБСОЛЮТНО ФИКСИРОВАННАЯ СИЛА ПРЫЖКА
         this.velocityY = CONFIG.PLAYER.JUMP_FORCE;
@@ -234,24 +292,49 @@ class Player {
         this.lastJumpTime = currentTime;
         this.canJump = false;
         this.jumpCooldown = true;
+        this.stats.totalJumps++;
+        
+        // Записываем в историю прыжков
+        this.stats.jumpHistory.push({
+            time: currentTime,
+            velocityY: this.velocityY,
+            jumpCount: this.jumpCount,
+            sequence: this.stats.totalJumps
+        });
+        
+        // Держим только последние 10 прыжков
+        if (this.stats.jumpHistory.length > 10) {
+            this.stats.jumpHistory.shift();
+        }
+        
+        if (window.LOG_JUMP) {
+            console.log(`🦘 JUMP #${this.stats.totalJumps}!`, {
+                velocityY: this.velocityY,
+                jumpCount: this.jumpCount,
+                timeSinceLast: timeSinceLastJump + 'ms',
+                sequence: this.stats.jumpHistory.map(j => j.velocityY.toFixed(1))
+            });
+        }
         
         // Сбрасываем кулдаун через 50 мс
         setTimeout(() => {
             this.jumpCooldown = false;
+            this.jumpInProgress = false;
         }, 50);
         
-        console.log(`JUMP! velocityY: ${this.velocityY}, time: ${currentTime}`);
         return true;
     }
 
     // Обработка приземления на платформу - МИНИМАЛИСТИЧНАЯ ВЕРСИЯ
     onPlatformHit() {
+        if (window.LOG_COLLISION) {
+            console.log('🎯 Platform hit - resetting jump state');
+        }
+        
         // ТОЛЬКО СБРОС СОСТОЯНИЯ, НИКАКОЙ ДОПОЛНИТЕЛЬНОЙ ЛОГИКИ
         this.isJumping = false;
         this.jumpCount = 0;
         this.canJump = true;
-        
-        console.log('Platform hit - state reset');
     }
 
     // Установка ввода для клавиатуры
@@ -297,7 +380,27 @@ class Player {
         this.jumpCount = 0;
         this.canJump = true;
         this.jumpCooldown = false;
+        this.jumpInProgress = false;
+    }
+    
+    // Методы для отладки
+    getDebugInfo() {
+        return {
+            position: { x: Math.round(this.x), y: Math.round(this.y) },
+            velocity: { x: this.velocityX.toFixed(2), y: this.velocityY.toFixed(2) },
+            state: {
+                isJumping: this.isJumping,
+                jumpCount: this.jumpCount,
+                canJump: this.canJump,
+                jumpCooldown: this.jumpCooldown,
+                jumpInProgress: this.jumpInProgress
+            },
+            stats: {
+                totalJumps: this.stats.totalJumps,
+                lastJumpTime: this.lastJumpTime
+            }
+        };
     }
 }
 
-console.log('Player class defined');
+console.log('✅ Player class defined');

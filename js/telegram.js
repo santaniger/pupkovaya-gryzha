@@ -1,4 +1,6 @@
 // Интеграция с Telegram Web App
+console.log('🔧 Loading Telegram integration...');
+
 class TelegramIntegration {
     constructor() {
         this.tg = null;
@@ -8,66 +10,54 @@ class TelegramIntegration {
     }
 
     init() {
-        console.log('Initializing Telegram integration...');
+        console.log('🤖 Initializing Telegram integration...');
         
         if (window.Telegram && window.Telegram.WebApp) {
             this.tg = window.Telegram.WebApp;
             this.initTelegram();
         } else {
-            console.log('Running outside Telegram - using mock mode');
+            console.log('🌐 Running outside Telegram - using mock mode');
             this.createMockTelegram();
         }
         
-        // Сохраняем ссылку для глобального доступа
         window.tg = this.tg;
-        
-        console.log('Telegram integration initialized');
+        console.log('✅ Telegram integration initialized');
     }
 
     initTelegram() {
         try {
-            // Расширяем на весь экран
             this.tg.expand();
             
-            // Включаем подтверждение закрытия (если поддерживается)
             try {
                 this.tg.enableClosingConfirmation();
             } catch (e) {
                 console.log('Closing confirmation not supported:', e.message);
             }
             
-            // Получаем данные пользователя
             this.initData = this.tg.initDataUnsafe;
             this.user = this.initData?.user;
             
-            // Настраиваем тему
             this.setupTheme();
-            
-            // Настраиваем события
             this.setupEvents();
-            
-            // Настраиваем UI
             this.setupUI();
             
-            console.log('Telegram Web App fully initialized', {
+            console.log('✅ Telegram Web App fully initialized', {
                 user: this.user,
                 theme: this.tg.colorScheme,
                 platform: this.tg.platform
             });
             
         } catch (error) {
-            console.error('Error initializing Telegram Web App:', error);
+            console.error('❌ Error initializing Telegram Web App:', error);
         }
     }
 
     setupTheme() {
         const theme = this.tg.colorScheme;
         
-        // Применяем цвета из Telegram
         if (this.tg.themeParams) {
             const params = this.tg.themeParams;
             
-            // Создаем CSS переменные с цветами Telegram
             document.documentElement.style.setProperty('--tg-theme-bg-color', params.bg_color || '#ffffff');
             document.documentElement.style.setProperty('--tg-theme-text-color', params.text_color || '#000000');
             document.documentElement.style.setProperty('--tg-theme-hint-color', params.hint_color || '#999999');
@@ -75,7 +65,6 @@ class TelegramIntegration {
             document.documentElement.style.setProperty('--tg-theme-button-color', params.button_color || '#5ac8fb');
             document.documentElement.style.setProperty('--tg-theme-button-text-color', params.button_text_color || '#ffffff');
             
-            // Применяем тему к фону
             if (theme === 'dark') {
                 document.body.style.background = params.bg_color || '#1e1e1e';
             } else {
@@ -83,12 +72,10 @@ class TelegramIntegration {
             }
         }
         
-        // Настраиваем viewport для мобильных устройств
         this.setupViewport();
     }
 
     setupViewport() {
-        // Получаем безопасные зоны (для iPhone с челкой)
         const safeArea = {
             top: this.tg.safeArea?.top || 0,
             bottom: this.tg.safeArea?.bottom || 0,
@@ -96,37 +83,39 @@ class TelegramIntegration {
             right: this.tg.safeArea?.right || 0
         };
         
-        // Применяем отступы для безопасных зон
         document.documentElement.style.setProperty('--safe-area-top', `${safeArea.top}px`);
         document.documentElement.style.setProperty('--safe-area-bottom', `${safeArea.bottom}px`);
         document.documentElement.style.setProperty('--safe-area-left', `${safeArea.left}px`);
         document.documentElement.style.setProperty('--safe-area-right', `${safeArea.right}px`);
         
-        // Настраиваем viewport
-        this.tg.requestViewport();
+        // Используем безопасный вызов requestViewport
+        if (this.tg.requestViewport && typeof this.tg.requestViewport === 'function') {
+            this.tg.requestViewport();
+        } else {
+            console.log('ℹ️ requestViewport not available in this Telegram version');
+        }
     }
 
     setupEvents() {
-        // Обработка изменения viewport
-        this.tg.onEvent('viewportChanged', (event) => {
-            console.log('Viewport changed:', event);
-            this.setupViewport();
-        });
+        // Используем безопасные вызовы методов
+        if (this.tg.onEvent && typeof this.tg.onEvent === 'function') {
+            this.tg.onEvent('viewportChanged', (event) => {
+                console.log('Viewport changed:', event);
+                this.setupViewport();
+            });
+            
+            this.tg.onEvent('themeChanged', () => {
+                console.log('Theme changed');
+                this.setupTheme();
+            });
+        }
         
-        // Обработка изменения темы
-        this.tg.onEvent('themeChanged', () => {
-            console.log('Theme changed');
-            this.setupTheme();
-        });
-        
-        // Обработка нажатия кнопки назад
         if (this.tg.BackButton) {
             this.tg.BackButton.onClick(() => {
                 this.handleBackButton();
             });
         }
         
-        // Обработка основных кнопок
         if (this.tg.MainButton) {
             this.setupMainButton();
         }
@@ -152,26 +141,31 @@ class TelegramIntegration {
                     
                 case GameState.GAME_OVER:
                 case GameState.MENU:
-                    this.tg.close();
+                    if (this.tg.close && typeof this.tg.close === 'function') {
+                        this.tg.close();
+                    }
                     break;
             }
         } else {
-            this.tg.close();
+            if (this.tg.close && typeof this.tg.close === 'function') {
+                this.tg.close();
+            }
         }
     }
 
     setupMainButton() {
-        // Можно настроить главную кнопку Telegram
-        this.tg.MainButton.setText('Play Game');
-        this.tg.MainButton.onClick(() => {
-            if (window.game) {
-                window.game.startGame();
-            }
-        });
+        if (this.tg.MainButton && this.tg.MainButton.setText && this.tg.MainButton.onClick) {
+            this.tg.MainButton.setText('Play Game');
+            this.tg.MainButton.onClick(() => {
+                if (window.game) {
+                    window.game.startGame();
+                }
+            });
+        }
     }
 
     showMainButton(text, onClick) {
-        if (this.tg.MainButton) {
+        if (this.tg.MainButton && this.tg.MainButton.setText && this.tg.MainButton.onClick && this.tg.MainButton.show) {
             this.tg.MainButton.setText(text);
             this.tg.MainButton.onClick(onClick);
             this.tg.MainButton.show();
@@ -179,13 +173,12 @@ class TelegramIntegration {
     }
 
     hideMainButton() {
-        if (this.tg.MainButton) {
+        if (this.tg.MainButton && this.tg.MainButton.hide) {
             this.tg.MainButton.hide();
         }
     }
 
     setupUI() {
-        // Показываем главную кнопку в меню
         if (this.tg.MainButton && window.game && window.game.state === GameState.MENU) {
             this.showMainButton('Start Game', () => {
                 window.game.startGame();
@@ -196,12 +189,10 @@ class TelegramIntegration {
 
     createMockTelegram() {
         this.tg = {
-            // Основные методы
             expand: () => console.log('[Mock] App expanded'),
             close: () => console.log('[Mock] App closed'),
             enableClosingConfirmation: () => console.log('[Mock] Closing confirmation enabled'),
             
-            // Данные
             initDataUnsafe: {
                 user: {
                     id: 123456789,
@@ -215,7 +206,6 @@ class TelegramIntegration {
                 hash: 'mock_hash'
             },
             
-            // Тема
             colorScheme: 'light',
             themeParams: {
                 bg_color: '#ffffff',
@@ -226,7 +216,6 @@ class TelegramIntegration {
                 button_text_color: '#ffffff'
             },
             
-            // Безопасные зоны
             safeArea: {
                 top: 0,
                 bottom: 0,
@@ -234,15 +223,12 @@ class TelegramIntegration {
                 right: 0
             },
             
-            // Платформа
             platform: 'unknown',
             
-            // События
             onEvent: (event, callback) => {
                 console.log(`[Mock] Event listener added: ${event}`);
             },
             
-            // Кнопки
             BackButton: {
                 show: () => console.log('[Mock] BackButton shown'),
                 hide: () => console.log('[Mock] BackButton hidden'),
@@ -256,21 +242,7 @@ class TelegramIntegration {
                 onClick: (callback) => console.log('[Mock] MainButton callback set')
             },
             
-            // Методы запросов
-            requestViewport: () => console.log('[Mock] Viewport requested'),
-            
-            // Методы отправки данных
-            sendData: (data) => {
-                console.log('[Mock] Data sent to bot:', data);
-                return true;
-            },
-            
-            shareUrl: (url, text) => {
-                console.log(`[Mock] Sharing: ${text} - ${url}`);
-                return true;
-            },
-            
-            // Версия
+            // Убираем requestViewport из mock так как его нет в реальном API
             version: '6.0'
         };
         
@@ -278,9 +250,8 @@ class TelegramIntegration {
         this.initData = this.tg.initDataUnsafe;
     }
 
-    // Отправка данных боту
     sendGameData(data) {
-        if (this.tg && typeof this.tg.sendData === 'function') {
+        if (this.tg && this.tg.sendData && typeof this.tg.sendData === 'function') {
             try {
                 this.tg.sendData(JSON.stringify(data));
                 return true;
@@ -292,9 +263,8 @@ class TelegramIntegration {
         return false;
     }
 
-    // Поделиться ссылкой через Telegram
     shareLink(url, text) {
-        if (this.tg && typeof this.tg.shareUrl === 'function') {
+        if (this.tg && this.tg.shareUrl && typeof this.tg.shareUrl === 'function') {
             try {
                 this.tg.shareUrl(url, text);
                 return true;
@@ -306,7 +276,6 @@ class TelegramIntegration {
         return false;
     }
 
-    // Получение информации о пользователе
     getUserInfo() {
         return this.user ? {
             id: this.user.id,
@@ -317,21 +286,18 @@ class TelegramIntegration {
         } : null;
     }
 
-    // Проверка, запущено ли в Telegram
     isInTelegram() {
         return window.Telegram && window.Telegram.WebApp;
     }
 }
 
-// Автоматическая инициализация при загрузке страницы
 let telegramIntegration;
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing Telegram integration...');
+    console.log('📄 DOM loaded, initializing Telegram integration...');
     telegramIntegration = new TelegramIntegration();
 });
 
-// Экспорт для глобального доступа
 window.TelegramIntegration = TelegramIntegration;
 
-console.log('Telegram integration module loaded');
+console.log('✅ Telegram integration module loaded');
