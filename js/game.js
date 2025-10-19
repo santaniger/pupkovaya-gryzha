@@ -5,6 +5,10 @@ class DoodleJumpGame {
     constructor() {
         console.log('🎮 Initializing DoodleJumpGame...');
         
+        // Включаем отладку
+        window.DEBUG_MODE = false;
+        window.LOG_PLATFORMS = false;
+        
         // Проверяем мобильное устройство
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         console.log('📱 Mobile device:', this.isMobile);
@@ -36,6 +40,10 @@ class DoodleJumpGame {
         // Система камеры
         this.cameraY = 0;
         this.cameraOffset = 200;
+        
+        // Система сложности
+        this.difficultyLevel = 1;
+        this.lastDifficultyUpdate = 0;
         
         // Управление касаниями
         this.isTouching = false;
@@ -70,6 +78,9 @@ class DoodleJumpGame {
             // Настройка интерфейса
             this.setupUI();
             
+            // Проверяем начальное состояние
+            this.validateInitialState();
+            
             this.updateLoadingText('Finalizing...');
             
             // Переход в меню
@@ -79,6 +90,9 @@ class DoodleJumpGame {
             setTimeout(() => {
                 this.showScreen('startScreen');
                 console.log('🎉 Game initialized successfully!');
+                
+                // Выводим отладочную информацию
+                console.log('📊 Initial game state:', this.getDebugInfo());
             }, 500);
             
             // Запуск игрового цикла
@@ -88,6 +102,46 @@ class DoodleJumpGame {
             console.error('❌ Error during game initialization:', error);
             this.showFatalError('Failed to initialize game: ' + error.message);
         }
+    }
+
+    // Проверка начального состояния
+    validateInitialState() {
+        console.log('🔍 Validating initial game state...');
+        
+        const startPlatform = this.platformManager.getStartPlatform();
+        if (!startPlatform) {
+            console.error('❌ No start platform found!');
+            this.platformManager.generateInitialPlatforms();
+            return false;
+        }
+        
+        console.log('✅ Start platform found:', {
+            x: startPlatform.x,
+            y: startPlatform.y,
+            type: startPlatform.type
+        });
+        
+        // Проверяем позицию игрока
+        console.log('✅ Player position:', {
+            x: this.player.x,
+            y: this.player.y,
+            width: this.player.width,
+            height: this.player.height
+        });
+        
+        // Проверяем, находится ли игрок над стартовой платформой
+        const playerOnPlatform = 
+            this.player.y + this.player.height <= startPlatform.y + startPlatform.height &&
+            this.player.y + this.player.height >= startPlatform.y;
+            
+        console.log(`✅ Player on platform: ${playerOnPlatform}`);
+        
+        if (!playerOnPlatform) {
+            console.warn('⚠️ Adjusting player position to be on start platform');
+            this.player.y = startPlatform.y - this.player.height;
+        }
+        
+        return true;
     }
 
     updateLoadingText(text) {
@@ -264,7 +318,13 @@ class DoodleJumpGame {
         this.platformManager.reset();
         this.isTouching = false;
         
-        // Обновление интерфейса - скрываем все экраны, игра отображается напрямую
+        // АВТОМАТИЧЕСКИЙ ПЕРВЫЙ ПРЫЖОК
+        setTimeout(() => {
+            this.player.jump();
+            console.log('🦘 Auto jump at game start');
+        }, 100);
+        
+        // Обновление интерфейса
         this.hideAllScreens();
         
         this.updateScoreDisplay();
@@ -288,10 +348,57 @@ class DoodleJumpGame {
             localStorage.setItem('doodleHighScore', this.highScore);
         }
         
-        // Показ экрана Game Over
-        document.getElementById('finalScore').textContent = Math.floor(this.score);
-        document.getElementById('gameOverHighScore').textContent = `Best: ${Math.floor(this.highScore)}`;
+        // Показ экрана Game Over с изображением
+        document.getElementById('finalScore').textContent = `Дорос до ЗП:\n${Math.floor(this.score)} к/наносек`;
+        document.getElementById('gameOverHighScore').textContent = `Рекордная премия:\n${Math.floor(this.highScore)} к/наносек`;
+        
+        // Показываем PNG изображение
+        this.showGameOverImage();
+        
         this.showScreen('gameOverScreen');
+        
+        // Отправка счета в Telegram
+        this.sendTelegramScore();
+    }
+    
+    // Новый метод для отображения PNG изображения
+    showGameOverImage() {
+        const gameOverImage = document.getElementById('gameOverImage');
+        if (gameOverImage) {
+            // Показываем изображение (оно уже загружено с правильным src)
+            gameOverImage.style.display = 'block';
+            
+            // Добавляем обработчик ошибки загрузки
+            gameOverImage.onerror = () => {
+                console.warn('⚠️ Game over PNG failed to load, hiding image');
+                gameOverImage.style.display = 'none';
+            };
+            
+            // Проверяем загрузилось ли изображение
+            if (!gameOverImage.complete || gameOverImage.naturalHeight === 0) {
+                console.log('🔄 Game over image still loading...');
+                gameOverImage.onload = () => {
+                    console.log('✅ Game over PNG loaded successfully');
+                };
+            }
+        }
+    }
+    
+    // Новый метод для установки изображения Game Over
+    setGameOverImage() {
+        const gameOverImage = document.getElementById('gameOverImage');
+        const gameOverCanvas = this.assets.getImage('gameOver');
+        
+        if (gameOverImage && gameOverCanvas) {
+            // Конвертируем canvas в data URL и устанавливаем как src
+            gameOverImage.src = gameOverCanvas.toDataURL();
+        } else {
+            console.warn('⚠️ Game over image not found, using fallback');
+            // Fallback - скрываем изображение если нет
+            if (gameOverImage) {
+                gameOverImage.style.display = 'none';
+            }
+        }
     }
 
     hideAllScreens() {
@@ -312,6 +419,10 @@ class DoodleJumpGame {
         
         // Не позволяем камере уходить ниже начальной позиции
         this.cameraY = Math.min(this.cameraY, 0);
+        
+        if (window.DEBUG_MODE) {
+            console.log(`📷 Camera: ${Math.round(this.cameraY)}, Player: ${Math.round(this.player.y)}`);
+        }
     }
 
     update(currentTime) {
@@ -338,13 +449,34 @@ class DoodleJumpGame {
             this.player.jump();
         }
         
-        // Обновление платформ
+        // Обновление платформ - передаем позицию игрока для генерации
         this.platformManager.update(this.player.y, this.deltaTime);
         
-        // Обновление счета на основе высоты
+        // Обновление счета
         const heightScore = Math.max(0, -this.player.y);
         this.score = Math.max(this.score, heightScore);
+        
         this.updateScoreDisplay();
+        
+        // Отладочная информация каждые 2 секунды
+        if (window.DEBUG_MODE && currentTime % 2000 < 16) {
+            console.log('📊 Game state:', this.getDebugInfo());
+            const platformInfo = this.platformManager.getDebugInfo();
+            console.log('📈 Platform distribution:', platformInfo.distribution);
+        }
+    }
+
+    updateDifficulty() {
+        const difficultyThreshold = 500; // Увеличиваем сложность каждые 500 очков
+        const newDifficulty = Math.floor(this.score / difficultyThreshold) + 1;
+        
+        if (newDifficulty > this.difficultyLevel) {
+            this.difficultyLevel = newDifficulty;
+            console.log(`🎯 Difficulty increased to level ${this.difficultyLevel}`);
+            
+            // Можно добавить эффекты увеличения сложности здесь
+            // Например: увеличить скорость движения платформ, уменьшить промежутки и т.д.
+        }
     }
 
     draw() {
@@ -362,12 +494,46 @@ class DoodleJumpGame {
             this.platformManager.draw(this.ctx, this.assets);
             this.player.draw(this.ctx, this.assets);
             
+            // Отладочная информация на холсте
+            if (window.DEBUG_MODE) {
+                this.drawDebugInfo();
+            }
+            
             // Восстанавливаем контекст
             this.ctx.restore();
             
         } catch (error) {
             console.error('❌ Error in game draw:', error);
         }
+    }
+
+    drawDebugInfo() {
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '12px Arial';
+        
+        this.ctx.fillText(`Player: ${Math.round(this.player.x)}, ${Math.round(this.player.y)}`, 10, 20);
+        this.ctx.fillText(`Velocity: ${this.player.velocityY.toFixed(1)}`, 10, 40);
+        this.ctx.fillText(`Camera: ${Math.round(this.cameraY)}`, 10, 60);
+        this.ctx.fillText(`Score: ${Math.round(this.score)}`, 10, 80);
+        
+        const platformInfo = this.platformManager.getDebugInfo();
+        this.ctx.fillText(`Platforms: ${platformInfo.totalPlatforms}`, 10, 100);
+        this.ctx.fillText(`Highest: ${platformInfo.highestPlatformY}`, 10, 120);
+    }
+
+    getDebugInfo() {
+        const platformInfo = this.platformManager.getDebugInfo();
+        
+        return {
+            game: {
+                state: this.state,
+                score: Math.round(this.score),
+                cameraY: Math.round(this.cameraY),
+                difficulty: this.difficultyLevel
+            },
+            player: this.player.getDebugInfo(),
+            platforms: platformInfo
+        };
     }
 
     clearCanvas() {
@@ -409,7 +575,7 @@ class DoodleJumpGame {
 
     // Поделиться результатом
     shareScore() {
-        const shareText = `🎯 I scored ${Math.floor(this.score)} points in Doodle Jump! Can you beat my score?`;
+        const shareText = `🎯 Я получил оффер на ${Math.floor(this.score)} к/наносек в Грыжа Jump! Рад за меня?`;
         
         if (navigator.share) {
             navigator.share({
@@ -440,7 +606,7 @@ class DoodleJumpGame {
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            alert('Score copied to clipboard! 📋');
+            alert('Ну скопировал, а куда это отправлять то?) 📋');
         }
     }
 
@@ -448,7 +614,7 @@ class DoodleJumpGame {
     updateScoreDisplay() {
         const scoreDisplay = document.getElementById('scoreDisplay');
         if (scoreDisplay) {
-            scoreDisplay.textContent = `Score: ${Math.floor(this.score)} | Best: ${Math.floor(this.highScore)}`;
+            scoreDisplay.textContent = `ЗП: ${Math.floor(this.score)} | Рекорд: ${Math.floor(this.highScore)}`;
         }
     }
 

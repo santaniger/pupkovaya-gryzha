@@ -21,13 +21,12 @@ const PLAYER_CONFIG = {
 const PLATFORMS_CONFIG = {
     WIDTH: 70,
     HEIGHT: 20,
-    MIN_GAP: 80,
-    MAX_GAP: 120,
-    START_COUNT: 8,
+    MIN_GAP: 60,       // Уменьшили минимальный разрыв
+    MAX_GAP: 140,      // Увеличили максимальный разрыв
+    START_COUNT: 50,   // Увеличили начальное количество
     MOVE_SPEED: 1.5,
     BREAKING_TIME: 0.5,
-    COLLISION_COOLDOWN: 300,
-    COLLISION_MARGIN: 5
+    MAX_PLATFORMS: 500 // Добавили максимальное количество
 };
 
 const GAME_CONFIG = {
@@ -36,7 +35,7 @@ const GAME_CONFIG = {
     DIFFICULTY_INCREASE: 0,
     PLATFORM_SPAWN_RATE: 0.8,
     JUMP_COOLDOWN: 200,
-    START_PLATFORM_Y: CANVAS_CONFIG.HEIGHT - 100
+    START_PLATFORM_Y: 500 // Убедитесь, что это значение соответствует ожиданиям
 };
 
 const COLORS_CONFIG = {

@@ -29,9 +29,10 @@ class AssetManager {
             background: 'assets/images/background.png',
             platformNormal: 'assets/images/platform_normal.png',
             platformBreaking: 'assets/images/platform_breaking.png',
-            platformMoving: 'assets/images/platform_moving.png'
+            platformMoving: 'assets/images/platform_moving.png',
+            gameOver: 'assets/images/game_over.png' // Добавляем game_over.png
         };
-
+    
         this.totalAssets = Object.keys(imageSources).length;
         
         try {

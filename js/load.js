@@ -54,7 +54,7 @@ async function loadAllScripts() {
                 console.error('❌ Error creating game instance:', error);
                 showError('Error starting game: ' + error.message);
             }
-        }, 500);
+        }, 1000);
         
     } catch (error) {
         console.error('💥 Error loading scripts:', error);

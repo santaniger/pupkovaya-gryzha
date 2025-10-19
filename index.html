@@ -29,6 +29,32 @@
             touch-action: manipulation;
         }
         
+        #gameOverImage {
+            width: 96px;
+            height: 128px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            animation: pulse 2s infinite;
+            object-fit: contain;
+            background: transparent;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Для мобильных устройств */
+        @media (max-height: 600px) {
+            #gameOverImage {
+                width: 96px;
+                height: 128px;
+                margin-bottom: 15px;
+            }
+        }
+
         .game-container {
             position: relative;
             width: 100vw;
@@ -181,29 +207,30 @@
         
         <!-- Loading Screen -->
         <div class="screen" id="loadingScreen">
-            <h1>🎮 Doodle Jump v13</h1>
-            <div id="loadingText">Loading game assets...</div>
+            <h1>🎮 Грыжа Jump</h1>
+            <div id="loadingText">Гружу шедевроигру...</div>
         </div>
         
         <!-- Start Screen -->
         <div class="screen" id="startScreen">
-            <h1>🦘 Doodle Jump v13</h1>
-            <h2 id="menuHighScore">Best: 0</h2>
-            <p>Jump from platform to platform!<br>Avoid falling down.</p>
-            <button class="button" id="startButton">Start Game</button>
+            <h1>🦘 Грыжа Jump</h1>
+            <h2 id="menuHighScore">Пока без ЗП</h2>
+            <p>Гоняй по карьерной лестнице!<br>Лутай деняк.</p>
+            <button class="button" id="startButton">Лутать</button>
             <div class="controls-info">
-                <strong>Controls:</strong><br>
-                Touch and drag to move
+                <strong>Управление:</strong><br>
+                Уродское
             </div>
         </div>
         
         <!-- Game Over Screen -->
         <div class="screen" id="gameOverScreen">
-            <h1>💀 Game Over</h1>
+            <img id="gameOverImage" src="assets/images/game_over.png" alt="Game Over" style="width: 120px; height: 120px; margin-bottom: 20px;">
+            <h1>Итого:</h1>
             <h2 id="finalScore">0</h2>
-            <p id="gameOverHighScore">Best: 0</p>
-            <button class="button" id="restartButton">Play Again</button>
-            <button class="button" id="shareButton">Share Score</button>
+            <p id="gameOverHighScore">Ноу ЗП</p>
+            <button class="button" id="restartButton">Ещё раз</button>
+            <button class="button" id="shareButton">Отправить?...</button>
         </div>
     </div>
 

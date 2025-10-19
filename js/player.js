@@ -16,7 +16,6 @@ class Player {
             right: false
         };
         this.lastDirection = 'right';
-        this.targetX = null;
         
         // Настройки для мобильных
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -30,16 +29,13 @@ class Player {
         this.width = 40;
         this.height = 40;
         this.x = 360 / 2 - this.width / 2;
-        this.y = 500 - this.height; // Позиция над стартовой платформой
+        this.y = 500 - this.height;
         this.velocityX = 0;
         this.velocityY = 0;
         this.isJumping = false;
-        this.jumpCount = 0;
-        this.targetX = null;
         
         this.lastJumpTime = 0;
         this.canJump = true;
-        this.jumpCooldown = false;
         
         this.stats.totalJumps = 0;
         this.stats.consecutiveJumps = 0;
@@ -87,36 +83,32 @@ class Player {
 
     handleMovement(deltaTime) {
         // Движение только для клавиатуры (не для касаний)
-        if (this.targetX === null) {
-            if (this.input.left) {
-                this.velocityX = Math.max(
-                    this.velocityX - 0.3, 
-                    -6
-                );
-            } else if (this.input.right) {
-                this.velocityX = Math.min(
-                    this.velocityX + 0.3, 
-                    6
-                );
-            } else {
-                // Трение
-                this.velocityX *= 0.85;
-                if (Math.abs(this.velocityX) < 0.1) this.velocityX = 0;
-            }
-            
-            // Применяем скорость только для клавиатуры
-            this.x += this.velocityX;
+        if (this.input.left) {
+            this.velocityX = Math.max(
+                this.velocityX - 0.3, 
+                -6
+            );
+        } else if (this.input.right) {
+            this.velocityX = Math.min(
+                this.velocityX + 0.3, 
+                6
+            );
+        } else {
+            // Трение
+            this.velocityX *= 0.85;
+            if (Math.abs(this.velocityX) < 0.1) this.velocityX = 0;
         }
+        
+        // Применяем скорость только для клавиатуры
+        this.x += this.velocityX;
     }
 
     handleScreenBounds() {
         // Телепортация через границы экрана
         if (this.x < -this.width) {
             this.x = 360;
-            if (this.targetX !== null) this.targetX = this.x;
         } else if (this.x > 360) {
             this.x = -this.width;
-            if (this.targetX !== null) this.targetX = this.x;
         }
     }
 
