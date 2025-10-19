@@ -64,13 +64,13 @@ class DoodleJumpGame {
         
         try {
             // Обновляем текст загрузки
-            this.updateLoadingText('Loading assets...');
+            this.updateLoadingText('Спрайты гружу...');
             
             // Загрузка ресурсов
             await this.assets.loadAllAssets();
             console.log('✅ Assets loaded successfully');
             
-            this.updateLoadingText('Setting up controls...');
+            this.updateLoadingText('Автопрыжок там...');
             
             // Настройка управления
             this.setupControls();
@@ -81,7 +81,7 @@ class DoodleJumpGame {
             // Проверяем начальное состояние
             this.validateInitialState();
             
-            this.updateLoadingText('Finalizing...');
+            this.updateLoadingText('Ща...');
             
             // Переход в меню
             this.state = 'menu';
@@ -597,7 +597,7 @@ class DoodleJumpGame {
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            alert('Score copied to clipboard! 📋');
+            alert('Ну скопировал, а куда это отправлять то?) 📋');
         } catch (error) {
             console.log('Clipboard copy failed:', error);
             const textArea = document.createElement('textarea');

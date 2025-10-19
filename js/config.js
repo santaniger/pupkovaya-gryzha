@@ -37,7 +37,7 @@ const GAME_CONFIG = {
     DIFFICULTY_INCREASE: 0,
     PLATFORM_SPAWN_RATE: 0.8,
     JUMP_COOLDOWN: 200,
-    START_PLATFORM_Y: 500 // Убедитесь, что это значение соответствует ожиданиям
+    START_PLATFORM_Y: 5 // Убедитесь, что это значение соответствует ожиданиям
 };
 
 const COLORS_CONFIG = {
