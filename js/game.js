@@ -254,6 +254,8 @@ class DoodleJumpGame {
         const startButton = document.getElementById('startButton');
         const restartButton = document.getElementById('restartButton');
         const shareButton = document.getElementById('shareButton');
+        const victoryRestartButton = document.getElementById('victoryRestartButton');
+        const victoryShareButton = document.getElementById('victoryShareButton');
         
         if (startButton) {
             startButton.addEventListener('click', () => this.startGame());
@@ -278,6 +280,23 @@ class DoodleJumpGame {
                 this.shareScore();
             });
         }
+        
+        // НОВЫЕ ОБРАБОТЧИКИ ДЛЯ ЭКРАНА ПОБЕДЫ
+        if (victoryRestartButton) {
+            victoryRestartButton.addEventListener('click', () => this.restartGame());
+            victoryRestartButton.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.restartGame();
+            });
+        }
+        
+        if (victoryShareButton) {
+            victoryShareButton.addEventListener('click', () => this.shareVictory());
+            victoryShareButton.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.shareVictory();
+            });
+        }
     }
 
     setupUI() {
@@ -289,7 +308,7 @@ class DoodleJumpGame {
         console.log(`🖥️ Showing screen: ${screenId}`);
         
         // Скрываем все экраны
-        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen'];
+        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen', 'victoryScreen'];
         screens.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
@@ -312,13 +331,14 @@ class DoodleJumpGame {
         this.state = 'playing';
         this.score = 0;
         this.cameraY = 0;
+        this.victoryAchieved = false; // Сбрасываем флаг победы
         
         // Сброс компонентов
         this.player.reset();
         this.platformManager.reset();
         this.isTouching = false;
         
-        // АВТОМАТИЧЕСКИЙ ПЕРВЫЙ ПРЫЖОК
+        // Автоматический первый прыжок
         setTimeout(() => {
             this.player.jump();
             console.log('🦘 Auto jump at game start');
@@ -333,6 +353,25 @@ class DoodleJumpGame {
     restartGame() {
         console.log('🔄 Restarting game...');
         this.startGame();
+    }
+
+    shareVictory() {
+        const shareText = `🎉 I reached ${Math.floor(this.score)} points and completed Doodle Jump! Can you beat my score?`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Doodle Jump Victory!',
+                text: shareText,
+                url: window.location.href
+            }).catch(error => {
+                console.log('Share cancelled:', error);
+                this.copyToClipboard(shareText);
+            });
+        } else if (window.tg && typeof window.tg.shareUrl === 'function') {
+            window.tg.shareUrl(window.location.href, shareText);
+        } else {
+            this.copyToClipboard(shareText);
+        }
     }
 
     gameOver() {
@@ -402,7 +441,7 @@ class DoodleJumpGame {
     }
 
     hideAllScreens() {
-        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen'];
+        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen', 'victoryScreen'];
         screens.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
@@ -426,6 +465,7 @@ class DoodleJumpGame {
     }
 
     update(currentTime) {
+        
         if (this.lastTime === 0) this.lastTime = currentTime;
         this.deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
@@ -438,7 +478,19 @@ class DoodleJumpGame {
             this.gameOver();
             return;
         }
+
+        if (this.lastTime === 0) this.lastTime = currentTime;
+        this.deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
         
+        if (this.state !== 'playing') return;
+        
+        // ПРОВЕРКА ПОБЕДЫ
+        if (!this.victoryAchieved && this.score >= this.victoryScore) {
+            this.victory();
+            return;
+        }
+
         // Обновление камеры
         this.updateCamera();
         
@@ -451,6 +503,11 @@ class DoodleJumpGame {
         
         // Обновление платформ - передаем позицию игрока для генерации
         this.platformManager.update(this.player.y, this.deltaTime);
+        const highestPlatform = this.platformManager.getHighestPlatform();
+        if (highestPlatform && this.player.y < highestPlatform.y + 300) {
+            console.log('🚨 Player close to top - forcing platform generation');
+            this.platformManager.generateInfinitePlatforms(this.player.y);
+        }
         
         // Обновление счета
         const heightScore = Math.max(0, -this.player.y);
@@ -464,6 +521,48 @@ class DoodleJumpGame {
             const platformInfo = this.platformManager.getDebugInfo();
             console.log('📈 Platform distribution:', platformInfo.distribution);
         }
+    }
+    
+    sendTelegramVictory() {
+        if (window.tg && typeof window.tg.sendData === 'function') {
+            try {
+                window.tg.sendData(JSON.stringify({
+                    action: 'victory',
+                    score: Math.floor(this.score),
+                    highScore: Math.floor(this.highScore),
+                    victoryScore: this.victoryScore,
+                    timestamp: Date.now()
+                }));
+            } catch (error) {
+                console.log('Could not send victory to Telegram:', error);
+            }
+        }
+    }
+
+    victory() {
+        console.log('🎉 Victory achieved! Score:', Math.floor(this.score));
+        
+        this.victoryAchieved = true;
+        this.state = 'victory';
+        this.isTouching = false;
+        this.player.clearTargetPosition();
+        
+        // Обновление рекорда
+        const isNewHighScore = this.score > this.highScore;
+        if (isNewHighScore) {
+            this.highScore = this.score;
+            localStorage.setItem('doodleHighScore', this.highScore);
+        }
+        
+        // Обновление экрана победы
+        document.getElementById('victoryScore').textContent = `Final Score: ${Math.floor(this.score)}`;
+        document.getElementById('victoryHighScore').textContent = 
+            isNewHighScore ? `New Best: ${Math.floor(this.highScore)}` : `Best: ${Math.floor(this.highScore)}`;
+        
+        this.showScreen('victoryScreen');
+        
+        // Отправка победы в Telegram
+        this.sendTelegramVictory();
     }
 
     updateDifficulty() {

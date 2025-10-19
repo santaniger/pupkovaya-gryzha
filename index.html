@@ -197,6 +197,39 @@
                 min-height: 44px;
             }
         }
+        /* Victory Screen Styles */
+        #victoryScreen {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        #victoryScreen h1 {
+            color: white;
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        #victoryScreen h2 {
+            color: #e8f5e8;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+
+        #victoryScreen p {
+            color: #c8e6c9;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+        }
+
+        #victoryScreen .button {
+            background: linear-gradient(135deg, #FFD700, #FFC400);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        #victoryScreen .button:hover {
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -232,6 +265,16 @@
             <button class="button" id="restartButton">Ещё раз</button>
             <button class="button" id="shareButton">Отправить?...</button>
         </div>
+        <!-- Victory Screen -->
+        <div class="screen" id="victoryScreen">
+            <h1>🎉 Побэда!</h1>
+            <h2>СЕО Тун Тун Сахур!</h2>
+            <p id="victoryScore">ЗП: 0</p>
+            <p id="victoryHighScore">Рекорд: 0</p>
+            <button class="button" id="victoryRestartButton">Play Again</button>
+            <button class="button" id="victoryShareButton">Share Victory</button>
+        </div>
+
     </div>
 
     <script src="js/load.js"></script>
