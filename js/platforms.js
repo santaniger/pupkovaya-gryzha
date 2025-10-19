@@ -172,9 +172,9 @@ class PlatformManager {
         this.scrollY = 0;
         this.highestPoint = 0;
         this.totalPlatformsGenerated = 0;
-        this.maxPlatforms = 500; // Увеличили лимит
+        this.maxPlatforms = 100; // Увеличили лимит
         this.lastGenerationHeight = 0;
-        this.generationThreshold = 200; // Расстояние для генерации новых платформ
+        this.generationThreshold = 20000; // Расстояние для генерации новых платформ
         this.generateInitialPlatforms();
     }
 
