@@ -622,7 +622,7 @@ class DoodleJumpGame {
     updateHighScoreDisplay() {
         const menuHighScore = document.getElementById('menuHighScore');
         if (menuHighScore) {
-            menuHighScore.textContent = `Best: ${Math.floor(this.highScore)}`;
+            menuHighScore.textContent = `Рекорд: ${Math.floor(this.highScore)}`;
         }
     }
 

@@ -172,40 +172,38 @@ class PlatformManager {
         this.scrollY = 0;
         this.highestPoint = 0;
         this.totalPlatformsGenerated = 0;
-        this.maxPlatforms = 100; // Увеличили лимит
+        this.maxPlatforms = 200; // Уменьшили лимит
         this.lastGenerationHeight = 0;
-        this.generationThreshold = 20000; // Расстояние для генерации новых платформ
+        this.generationThreshold = 300;
+        this.minGap = 80;  // Минимальный разрыв
+        this.maxGap = 150; // Максимальный разрыв
         this.generateInitialPlatforms();
     }
 
     generateInitialPlatforms() {
         console.log('🏗️ Generating initial platforms');
         
-        // Очищаем существующие платформы
         this.platforms = [];
         
         // Стартовая платформа
         const startPlatform = new Platform(360 / 2 - 70 / 2, 500, 'normal');
         this.platforms.push(startPlatform);
         
-        // Генерируем платформы ВВЕРХ от стартовой
+        // Генерируем платформы с правильными промежутками
         let currentY = 500;
-        const platformsToGenerate = 500; // Увеличили начальное количество
+        const platformsToGenerate = 30; // Уменьшили начальное количество
         
         for (let i = 0; i < platformsToGenerate; i++) {
             currentY -= this.getRandomGap();
             this.generatePlatform(currentY);
             
-            // Защита от бесконечного цикла
-            if (currentY < -10000) break;
+            if (currentY < -2000) break;
         }
         
         this.lastGenerationHeight = this.getHighestPlatform()?.y || currentY;
         this.highestPoint = this.lastGenerationHeight;
         
         console.log(`✅ Generated ${this.platforms.length} platforms`);
-        console.log(`📊 Highest platform: ${this.lastGenerationHeight}`);
-        console.log('📈 Platform distribution:', this.getPlatformDistribution());
     }
     
     // Добавьте метод для отладки распределения платформ
@@ -220,7 +218,8 @@ class PlatformManager {
             'below-0': 0,
             'below-1000': 0,
             'below-2000': 0,
-            'below-3000': 0
+            'below-3000': 0,
+            'below-4000': 0
         };
         
         this.platforms.forEach(platform => {
@@ -234,7 +233,8 @@ class PlatformManager {
             else if (y >= -1000) ranges['below-0']++;
             else if (y >= -2000) ranges['below-1000']++;
             else if (y >= -3000) ranges['below-2000']++;
-            else ranges['below-3000']++;
+            else if (y >= -4000) ranges['below-3000']++;
+            else ranges['below-4000']++;
         });
         
         return ranges;
@@ -257,7 +257,7 @@ class PlatformManager {
 
     // Обновите метод removeLowestPlatform - сделайте его безопасным
     removeLowestPlatform() {
-        if (this.platforms.length <= 100) return; // Минимум 100 платформ
+        if (this.platforms.length <= 50) return; // Минимум 50 платформ
         
         let lowestIndex = -1;
         let lowestY = -Infinity;
@@ -269,7 +269,7 @@ class PlatformManager {
             }
         }
         
-        if (lowestIndex !== -1 && lowestY > 800) { // Удаляем только очень низкие платформы
+        if (lowestIndex !== -1 && lowestY > 1000) { // Удаляем только очень низкие платформы
             this.platforms.splice(lowestIndex, 1);
         }
     }
@@ -291,12 +291,12 @@ class PlatformManager {
     }
 
     update(playerY, deltaTime) {
-        // Обновляем физику платформ (движущиеся и ломающиеся)
+        // Обновляем физику платформ
         this.platforms.forEach(platform => {
             platform.update(deltaTime);
         });
 
-        // Генерация новых платформ ВВЕРХ
+        // Генерация новых платформ с ограничениями
         this.generateInfinitePlatforms(playerY);
         
         return 0;
@@ -308,26 +308,23 @@ class PlatformManager {
         if (!highestPlatform) return;
         
         const currentHighestY = highestPlatform.y;
-        
-        // Генерируем новые платформы, если игрок приблизился к текущей самой высокой
         const distanceToTop = playerY - currentHighestY;
         
-        if (distanceToTop < 400) { // Генерируем когда игрок близко к верху
+        // Генерируем только когда игрок близко к верху И прошло достаточно времени
+        if (distanceToTop < 500 && this.platforms.length < this.maxPlatforms) {
             let currentY = this.lastGenerationHeight;
-            const platformsToGenerate = 10;
+            const platformsToGenerate = 3; // Уменьшили количество за раз
             
             for (let i = 0; i < platformsToGenerate; i++) {
-                // Останавливаемся если достигли максимального количества
-                if (this.platforms.length >= this.maxPlatforms) {
-                    console.log('📊 Reached max platforms limit');
-                    break;
-                }
+                if (this.platforms.length >= this.maxPlatforms) break;
                 
                 currentY -= this.getRandomGap();
                 
-                // Защита от слишком больших прыжков
-                if (Math.abs(currentY - this.lastGenerationHeight) > 150) {
-                    currentY = this.lastGenerationHeight - 100;
+                // ПРОВЕРКА ПЕРЕСЕЧЕНИЙ - важнейшая часть!
+                if (!this.isPositionValid(currentY)) {
+                    // Если позиция занята, ищем свободную
+                    currentY = this.findValidPosition(currentY);
+                    if (currentY === null) break; // Не нашли свободное место
                 }
                 
                 this.generatePlatform(currentY);
@@ -335,26 +332,82 @@ class PlatformManager {
             
             this.lastGenerationHeight = currentY;
             this.highestPoint = Math.min(this.highestPoint, currentY);
-            
-            console.log(`🔼 Generated platforms up to Y: ${Math.round(currentY)}`);
         }
     }
+
+    isPositionValid(y) {
+        const verticalThreshold = 30; // Минимальное расстояние по Y между платформами
+        const horizontalThreshold = 50; // Минимальное расстояние по X
+        
+        for (const platform of this.platforms) {
+            // Проверяем вертикальное расстояние
+            if (Math.abs(platform.y - y) < verticalThreshold) {
+                return false; // Слишком близко по вертикали
+            }
+            
+            // Дополнительная проверка для близких платформ
+            if (Math.abs(platform.y - y) < 60) {
+                // Если вертикально близко, проверяем горизонтальное перекрытие
+                const futurePlatformX = this.getRandomPlatformX();
+                if (Math.abs(platform.x - futurePlatformX) < horizontalThreshold) {
+                    return false; // Слишком близко и по горизонтали
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    // НОВЫЙ МЕТОД - поиск валидной позиции
+    findValidPosition(desiredY) {
+        let attempts = 0;
+        let currentY = desiredY;
+        const maxAttempts = 10;
+        
+        while (attempts < maxAttempts) {
+            if (this.isPositionValid(currentY)) {
+                return currentY;
+            }
+            
+            // Пробуем разные Y
+            currentY -= this.getRandomGap();
+            attempts++;
+        }
+        
+        console.warn('⚠️ Could not find valid position after', maxAttempts, 'attempts');
+        return null;
+    }
+
     getRandomGap() {
-        return 60 + Math.random() * 80; // 60-140px между платформами
+        // Динамический разрыв в зависимости от высоты
+        const baseGap = 80 + Math.random() * 70; // 80-150px
+        return baseGap;
     }
 
     getRandomPlatformX() {
-        const padding = 20;
+        const padding = 25; // Увеличили отступы от краев
         return padding + Math.random() * (360 - 70 - padding * 2);
     }
 
     getRandomPlatformType() {
         const rand = Math.random();
-        if (this.platforms.length < 10) return 'normal'; // Первые 10 платформ - обычные
         
-        if (rand <= 0.6) return 'normal';    // 60% обычные
-        if (rand <= 0.85) return 'breaking'; // 25% ломающиеся  
-        return 'moving';                     // 15% движущиеся
+        // Первые 15 платформ - только обычные
+        if (this.platforms.length < 15) return 'normal';
+        
+        // На больших высотах уменьшаем вероятность ломающихся платформ
+        const currentHeight = Math.abs(this.getHighestPlatform()?.y || 0);
+        let breakingChance = 0.25;
+        let movingChance = 0.15;
+        
+        if (currentHeight > 2000) {
+            breakingChance = 0.15;  // Уменьшаем ломающиеся
+            movingChance = 0.2;     // Немного увеличиваем движущиеся
+        }
+        
+        if (rand <= breakingChance) return 'breaking';
+        if (rand <= breakingChance + movingChance) return 'moving';
+        return 'normal';
     }
 
     // ЗАКОММЕНТИРУЙТЕ или УДАЛИТЕ метод cleanupOldPlatforms

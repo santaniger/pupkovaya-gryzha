@@ -21,12 +21,14 @@ const PLAYER_CONFIG = {
 const PLATFORMS_CONFIG = {
     WIDTH: 70,
     HEIGHT: 20,
-    MIN_GAP: 60,       // Уменьшили минимальный разрыв
-    MAX_GAP: 140,      // Увеличили максимальный разрыв
-    START_COUNT: 50,   // Увеличили начальное количество
+    MIN_GAP: 80,       // Увеличили минимальный разрыв
+    MAX_GAP: 150,      // Увеличили максимальный разрыв  
+    START_COUNT: 30,   // Уменьшили начальное количество
     MOVE_SPEED: 1.5,
     BREAKING_TIME: 0.5,
-    MAX_PLATFORMS: 500 // Добавили максимальное количество
+    MAX_PLATFORMS: 200, // Уменьшили максимальное количество
+    VERTICAL_THRESHOLD: 30, // Минимальное расстояние по Y
+    HORIZONTAL_THRESHOLD: 50 // Минимальное расстояние по X
 };
 
 const GAME_CONFIG = {
