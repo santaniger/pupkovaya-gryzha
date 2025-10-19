@@ -1,4 +1,4 @@
-// player.js - УПРОЩЕННАЯ ФИЗИКА И УПРАВЛЕНИЕ
+// player.js - ИСПРАВЛЕННОЕ УПРАВЛЕНИЕ
 console.log('🔧 Loading Player class...');
 
 class Player {
@@ -20,7 +20,8 @@ class Player {
         
         // Настройки для мобильных
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        this.mobileSensitivity = 0.15;
+        
+        console.log('✅ Player instance created');
     }
 
     reset() {
@@ -34,7 +35,7 @@ class Player {
         this.velocityY = 0;
         this.isJumping = false;
         this.jumpCount = 0;
-        this.targetX = this.x;
+        this.targetX = null;
         
         this.lastJumpTime = 0;
         this.canJump = true;
@@ -44,15 +45,6 @@ class Player {
         this.stats.consecutiveJumps = 0;
         
         console.log(`✅ Player reset complete at (${Math.round(this.x)}, ${Math.round(this.y)})`);
-    }
-
-    setTargetPosition(x) {
-        // Разные настройки чувствительности для мобильных и десктопа
-        const sensitivity = this.isMobile ? this.mobileSensitivity : 0.2;
-        this.targetX = (x - 180) * sensitivity + 180 - this.width / 2;
-        
-        // Ограничиваем позицию в пределах canvas
-        this.targetX = Math.max(0, Math.min(this.targetX, 360 - this.width));
     }
 
     update(deltaTime) {
@@ -67,14 +59,13 @@ class Player {
             this.velocityY = -13;
         }
         
-        // Движение
+        // Движение - ТОЛЬКО для клавиатуры
         this.handleMovement(deltaTime);
         
-        // Обновление позиции
-        this.x += this.velocityX;
+        // Обновление позиции по Y
         this.y += this.velocityY;
         
-        // Границы экрана
+        // Границы экрана (телепортация)
         this.handleScreenBounds();
         
         // Направление
@@ -95,16 +86,8 @@ class Player {
     }
 
     handleMovement(deltaTime) {
-        if (this.targetX !== null) {
-            // ПЛАВНОЕ ДВИЖЕНИЕ К ЦЕЛЕВОЙ ПОЗИЦИИ
-            const diff = this.targetX - this.x;
-            this.velocityX = diff * 0.2;
-            
-            if (Math.abs(this.velocityX) > 6) {
-                this.velocityX = Math.sign(this.velocityX) * 6;
-            }
-        } else {
-            // Управление с клавиатуры
+        // Движение только для клавиатуры (не для касаний)
+        if (this.targetX === null) {
             if (this.input.left) {
                 this.velocityX = Math.max(
                     this.velocityX - 0.3, 
@@ -120,6 +103,9 @@ class Player {
                 this.velocityX *= 0.85;
                 if (Math.abs(this.velocityX) < 0.1) this.velocityX = 0;
             }
+            
+            // Применяем скорость только для клавиатуры
+            this.x += this.velocityX;
         }
     }
 
@@ -172,6 +158,27 @@ class Player {
         this.canJump = true;
     }
 
+    // ИСПРАВЛЕННОЕ УПРАВЛЕНИЕ - точное позиционирование
+    setExactPosition(x) {
+        // Устанавливаем точную позицию X (центрируем игрока под пальцем)
+        this.x = x - this.width / 2;
+        
+        // Ограничиваем позицию в пределах canvas
+        this.x = Math.max(0, Math.min(this.x, 360 - this.width));
+        
+        // Сбрасываем velocityX при управлении касаниями
+        this.velocityX = 0;
+    }
+
+    // Старый метод для обратной совместимости
+    setTargetPosition(x) {
+        this.setExactPosition(x);
+    }
+
+    clearTargetPosition() {
+        this.targetX = null;
+    }
+
     draw(ctx, assets) {
         const image = assets.getImage('player');
         
@@ -218,16 +225,28 @@ class Player {
         }
     }
 
-    setTargetPosition(x) {
-        this.targetX = x - this.width / 2;
-    }
-
-    clearTargetPosition() {
-        this.targetX = null;
+    getDebugInfo() {
+        return {
+            position: {
+                x: Math.round(this.x),
+                y: Math.round(this.y)
+            },
+            velocity: {
+                x: this.velocityX.toFixed(2),
+                y: this.velocityY.toFixed(2)
+            },
+            state: {
+                isJumping: this.isJumping,
+                canJump: this.canJump,
+                lastDirection: this.lastDirection
+            },
+            stats: {
+                totalJumps: this.stats.totalJumps,
+                consecutiveJumps: this.stats.consecutiveJumps
+            }
+        };
     }
 }
 
-// Явно добавляем класс в глобальную область видимости
 window.Player = Player;
-
 console.log('✅ Player class defined');

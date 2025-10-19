@@ -1,4 +1,4 @@
-// Основной класс игры Doodle Jump - МОБИЛЬНАЯ ВЕРСИЯ
+// Основной класс игры Doodle Jump - ИСПРАВЛЕННОЕ УПРАВЛЕНИЕ
 console.log('🔧 Loading DoodleJumpGame class...');
 
 class DoodleJumpGame {
@@ -40,6 +40,7 @@ class DoodleJumpGame {
         // Управление касаниями
         this.isTouching = false;
         this.touchStartX = 0;
+        this.lastTouchX = 0;
         
         // Время и анимация
         this.animationId = null;
@@ -123,15 +124,18 @@ class DoodleJumpGame {
             e.preventDefault();
             if (this.state === 'playing') {
                 this.isTouching = true;
-                this.touchStartX = e.touches[0].clientX;
-                this.handleTouch(e.touches[0]);
+                const touch = e.touches[0];
+                this.touchStartX = touch.clientX;
+                this.lastTouchX = touch.clientX;
+                this.handleTouch(touch);
             }
         }, { passive: false });
         
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
             if (this.state === 'playing' && this.isTouching) {
-                this.handleTouch(e.touches[0]);
+                const touch = e.touches[0];
+                this.handleTouch(touch);
             }
         }, { passive: false });
         
@@ -148,13 +152,20 @@ class DoodleJumpGame {
         }, { passive: false });
     }
 
+    // ИСПРАВЛЕННОЕ УПРАВЛЕНИЕ - точное следование за пальцем
     handleTouch(touch) {
         const canvasRect = this.canvas.getBoundingClientRect();
+        
+        // Вычисляем позицию касания относительно canvas
         const touchX = touch.clientX - canvasRect.left;
         
-        // Меньшая чувствительность для мобильных
-        const sensitivity = this.isMobile ? 0.15 : 0.2;
-        this.player.setTargetPosition(touchX * sensitivity);
+        // Ограничиваем позицию в пределах canvas
+        const clampedX = Math.max(0, Math.min(touchX, this.canvas.width));
+        
+        // Устанавливаем точную позицию игрока (центрируем под пальцем)
+        this.player.setExactPosition(clampedX);
+        
+        this.lastTouchX = touch.clientX;
     }
 
     handleKeyDown(e) {
