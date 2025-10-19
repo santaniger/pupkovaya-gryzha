@@ -172,11 +172,11 @@ class PlatformManager {
         this.scrollY = 0;
         this.highestPoint = 0;
         this.totalPlatformsGenerated = 0;
-        this.maxPlatforms = 300; // Увеличили лимит для бесконечной игры
+        this.maxPlatforms = 400; // Увеличили лимит
         this.lastGenerationHeight = 0;
-        this.generationThreshold = 400;
+        this.generationThreshold = 200;
         this.minGap = 80;
-        this.maxGap = 160; // Увеличили максимальный разрыв
+        this.maxGap = 160;
         this.generateInitialPlatforms();
     }
 
@@ -189,15 +189,16 @@ class PlatformManager {
         const startPlatform = new Platform(360 / 2 - 70 / 2, 500, 'normal');
         this.platforms.push(startPlatform);
         
-        // Генерируем платформы до высоты -5000 для начала
+        // Генерируем платформы ВВЕРХ от стартовой
         let currentY = 500;
-        const initialHeight = -5000; // Начальная высота генерации
+        const platformsToGenerate = 200; // Большое начальное количество
         
-        while (currentY > initialHeight && this.platforms.length < 100) {
+        for (let i = 0; i < platformsToGenerate; i++) {
             currentY -= this.getRandomGap();
-            if (this.isPositionValid(currentY)) {
-                this.generatePlatform(currentY);
-            }
+            this.generatePlatform(currentY);
+            
+            // Защита от бесконечного цикла
+            if (currentY < -10000) break;
         }
         
         this.lastGenerationHeight = this.getHighestPlatform()?.y || currentY;
@@ -210,41 +211,33 @@ class PlatformManager {
     getPlatformDistribution() {
         const ranges = {
             '500+': 0,
-            '400-500': 0,
-            '300-400': 0, 
-            '200-300': 0,
-            '100-200': 0,
-            '0-100': 0,
-            'below-0': 0,
-            'below-1000': 0,
-            'below-2000': 0,
-            'below-3000': 0,
-            'below-4000': 0
+            '0-500': 0,
+            '-1000-0': 0,
+            '-2000--1000': 0,
+            '-3000--2000': 0,
+            '-4000--3000': 0,
+            '-5000--4000': 0,
+            '-10000--5000': 0,
+            'below-10000': 0
         };
         
         this.platforms.forEach(platform => {
             const y = platform.y;
             if (y >= 500) ranges['500+']++;
-            else if (y >= 400) ranges['400-500']++;
-            else if (y >= 300) ranges['300-400']++;
-            else if (y >= 200) ranges['200-300']++;
-            else if (y >= 100) ranges['100-200']++;
-            else if (y >= 0) ranges['0-100']++;
-            else if (y >= -1000) ranges['below-0']++;
-            else if (y >= -2000) ranges['below-1000']++;
-            else if (y >= -3000) ranges['below-2000']++;
-            else if (y >= -4000) ranges['below-3000']++;
-            else ranges['below-4000']++;
+            else if (y >= 0) ranges['0-500']++;
+            else if (y >= -1000) ranges['-1000-0']++;
+            else if (y >= -2000) ranges['-2000--1000']++;
+            else if (y >= -3000) ranges['-3000--2000']++;
+            else if (y >= -4000) ranges['-4000--3000']++;
+            else if (y >= -5000) ranges['-5000--4000']++;
+            else if (y >= -10000) ranges['-10000--5000']++;
+            else ranges['below-10000']++;
         });
         
         return ranges;
     }
 
     generatePlatform(y) {
-        if (this.platforms.length >= this.maxPlatforms) {
-            this.removeLowestPlatform();
-        }
-        
         const type = this.getRandomPlatformType();
         const x = this.getRandomPlatformX();
         
@@ -278,20 +271,14 @@ class PlatformManager {
         const rand = Math.random();
         const currentHeight = Math.abs(this.getHighestPlatform()?.y || 0);
         
-        // Первые 20 платформ - только обычные
-        if (this.platforms.length < 20) return 'normal';
+        if (this.platforms.length < 30) return 'normal'; // Первые 30 - обычные
         
         let breakingChance = 0.2;
         let movingChance = 0.15;
         
-        // На больших высотах увеличиваем сложность
-        if (currentHeight > 5000) {
+        if (currentHeight > 3000) {
             breakingChance = 0.25;
             movingChance = 0.2;
-        }
-        if (currentHeight > 10000) {
-            breakingChance = 0.3;
-            movingChance = 0.25;
         }
         
         if (rand <= breakingChance) return 'breaking';
@@ -314,11 +301,8 @@ class PlatformManager {
             platform.update(deltaTime);
         });
 
-        // Генерация новых платформ - ВСЕГДА генерируем при необходимости
+        // ВСЕГДА генерируем новые платформы
         this.generateInfinitePlatforms(playerY);
-        
-        // Мягкая очистка только очень старых платформ
-        this.softCleanup(playerY);
         
         return 0;
     }
@@ -329,57 +313,59 @@ class PlatformManager {
         if (!highestPlatform) return;
         
         const currentHighestY = highestPlatform.y;
-        const playerProgress = Math.abs(playerY); // Прогресс игрока (положительное число)
         
-        // ВСЕГДА генерируем платформы выше текущей самой высокой
-        const targetHeight = currentHighestY - 1000; // Всегда хотим платформы на 1000px выше
-        
-        if (this.lastGenerationHeight > targetHeight) {
-            return; // Уже сгенерировали достаточно высоко
+        // ПРОСТАЯ ЛОГИКА: всегда генерируем платформы выше текущей самой высокой
+        if (this.lastGenerationHeight > currentHighestY - 1000) {
+            // Уже есть запас платформ
+            return;
         }
         
+        console.log(`🔼 Generating new platforms. Current highest: ${Math.round(currentHighestY)}, Last gen: ${Math.round(this.lastGenerationHeight)}`);
+        
         let currentY = this.lastGenerationHeight;
-        const platformsToGenerate = 5;
-        let generated = 0;
+        const platformsToGenerate = 20; // Генерируем много платформ за раз
         
         for (let i = 0; i < platformsToGenerate; i++) {
             if (this.platforms.length >= this.maxPlatforms) {
-                // Если достигли лимита, удаляем самые нижние
-                this.removeLowestPlatform();
+                // Удаляем самые нижние платформы чтобы освободить место
+                this.removeMultipleLowestPlatforms(5);
             }
             
-            currentY -= this.getDynamicGap(playerProgress);
+            currentY -= this.getRandomGap();
             
-            // Находим валидную позицию
-            const validY = this.findValidPosition(currentY);
-            if (validY === null) {
-                currentY -= this.getRandomGap(); // Пробуем следующую позицию
+            // Простая проверка - если позиция сильно занята, увеличиваем разрыв
+            if (!this.isPositionValid(currentY)) {
+                currentY -= 30; // Добавляем дополнительный разрыв
                 continue;
             }
             
-            currentY = validY;
             this.generatePlatform(currentY);
-            generated++;
         }
         
-        if (generated > 0) {
-            this.lastGenerationHeight = currentY;
-            this.highestPoint = Math.min(this.highestPoint, currentY);
-        }
+        this.lastGenerationHeight = currentY;
+        this.highestPoint = Math.min(this.highestPoint, currentY);
+        
+        console.log(`✅ Generated ${platformsToGenerate} platforms up to Y: ${Math.round(currentY)}`);
     }
 
-    getDynamicGap(playerProgress) {
-        const baseGap = 80 + Math.random() * 80; // 80-160px
+    removeMultipleLowestPlatforms(count) {
+        if (this.platforms.length <= 100) return; // Минимум 100 платформ
         
-        // На больших высотах увеличиваем разрывы для сложности
-        if (playerProgress > 5000) {
-            return baseGap * 1.2; // +20% на высоте >5000
+        for (let c = 0; c < count; c++) {
+            let lowestIndex = -1;
+            let lowestY = -Infinity;
+            
+            for (let i = 0; i < this.platforms.length; i++) {
+                if (this.platforms[i].y > lowestY) {
+                    lowestY = this.platforms[i].y;
+                    lowestIndex = i;
+                }
+            }
+            
+            if (lowestIndex !== -1) {
+                this.platforms.splice(lowestIndex, 1);
+            }
         }
-        if (playerProgress > 10000) {
-            return baseGap * 1.4; // +40% на высоте >10000
-        }
-        
-        return baseGap;
     }
 
     // НОВЫЙ МЕТОД - мягкая очистка только очень старых платформ
@@ -405,10 +391,9 @@ class PlatformManager {
     }
 
     isPositionValid(y) {
-        const verticalThreshold = 35; // Увеличили минимальное расстояние
+        const verticalThreshold = 25; // Уменьшили минимальное расстояние
         
         for (const platform of this.platforms) {
-            // Проверяем только вертикальное расстояние
             if (Math.abs(platform.y - y) < verticalThreshold) {
                 return false;
             }
@@ -458,13 +443,11 @@ class PlatformManager {
     }
 
     getRandomGap() {
-        // Динамический разрыв в зависимости от высоты
-        const baseGap = 80 + Math.random() * 70; // 80-150px
-        return baseGap;
+        return this.minGap + Math.random() * (this.maxGap - this.minGap);
     }
 
     getRandomPlatformX() {
-        const padding = 25; // Увеличили отступы от краев
+        const padding = 20;
         return padding + Math.random() * (360 - 70 - padding * 2);
     }
 
@@ -573,12 +556,13 @@ class PlatformManager {
         if (window.DEBUG_MODE) {
             ctx.fillStyle = 'white';
             ctx.font = '12px Arial';
-            ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 580);
             
             const highest = this.getHighestPlatform();
-            if (highest) {
-                ctx.fillText(`Highest: ${Math.round(highest.y)}`, 10, 600);
-            }
+            const lowest = this.getLowestPlatform();
+            
+            ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 580);
+            ctx.fillText(`Highest: ${highest ? Math.round(highest.y) : 'None'}`, 10, 600);
+            ctx.fillText(`Last Gen: ${Math.round(this.lastGenerationHeight)}`, 150, 580);
         }
     }
 
@@ -602,6 +586,22 @@ class PlatformManager {
         this.totalPlatformsGenerated = 0;
         this.lastGenerationHeight = 0;
         this.generateInitialPlatforms();
+    }
+
+    getDebugInfo() {
+        const highest = this.getHighestPlatform();
+        const lowest = this.getLowestPlatform();
+        const distribution = this.getPlatformDistribution();
+        
+        return {
+            totalPlatforms: this.platforms.length,
+            platformsGenerated: this.totalPlatformsGenerated,
+            highestPoint: Math.round(this.highestPoint),
+            highestPlatformY: highest ? Math.round(highest.y) : 'None',
+            lowestPlatformY: lowest ? Math.round(lowest.y) : 'None',
+            lastGenerationHeight: Math.round(this.lastGenerationHeight),
+            distribution: distribution
+        };
     }
 
     validatePlatforms() {
