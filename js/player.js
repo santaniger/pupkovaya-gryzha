@@ -17,6 +17,10 @@ class Player {
         };
         this.lastDirection = 'right';
         this.targetX = null;
+        
+        // Настройки для мобильных
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.mobileSensitivity = 0.15;
     }
 
     reset() {
@@ -40,6 +44,15 @@ class Player {
         this.stats.consecutiveJumps = 0;
         
         console.log(`✅ Player reset complete at (${Math.round(this.x)}, ${Math.round(this.y)})`);
+    }
+
+    setTargetPosition(x) {
+        // Разные настройки чувствительности для мобильных и десктопа
+        const sensitivity = this.isMobile ? this.mobileSensitivity : 0.2;
+        this.targetX = (x - 180) * sensitivity + 180 - this.width / 2;
+        
+        // Ограничиваем позицию в пределах canvas
+        this.targetX = Math.max(0, Math.min(this.targetX, 360 - this.width));
     }
 
     update(deltaTime) {

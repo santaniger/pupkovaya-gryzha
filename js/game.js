@@ -5,17 +5,28 @@ class DoodleJumpGame {
     constructor() {
         console.log('🎮 Initializing DoodleJumpGame...');
         
+        // Проверяем мобильное устройство
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        console.log('📱 Mobile device:', this.isMobile);
+        
         // Инициализация основных компонентов
         this.canvas = document.getElementById('gameCanvas');
         if (!this.canvas) {
             console.error('❌ Canvas element not found!');
+            this.showFatalError('Game canvas not found');
             return;
         }
         
-        this.ctx = this.canvas.getContext('2d');
-        this.assets = new AssetManager();
-        this.platformManager = new PlatformManager();
-        this.player = new Player();
+        try {
+            this.ctx = this.canvas.getContext('2d');
+            this.assets = new AssetManager();
+            this.platformManager = new PlatformManager();
+            this.player = new Player();
+        } catch (error) {
+            console.error('❌ Error initializing game components:', error);
+            this.showFatalError('Failed to initialize game: ' + error.message);
+            return;
+        }
         
         // Состояние игры
         this.state = 'loading';
@@ -24,10 +35,11 @@ class DoodleJumpGame {
         
         // Система камеры
         this.cameraY = 0;
-        this.cameraOffset = 200; // Отступ камеры от верха
+        this.cameraOffset = 200;
         
         // Управление касаниями
         this.isTouching = false;
+        this.touchStartX = 0;
         
         // Время и анимация
         this.animationId = null;
@@ -42,9 +54,14 @@ class DoodleJumpGame {
         console.log('🚀 Starting game initialization...');
         
         try {
+            // Обновляем текст загрузки
+            this.updateLoadingText('Loading assets...');
+            
             // Загрузка ресурсов
             await this.assets.loadAllAssets();
             console.log('✅ Assets loaded successfully');
+            
+            this.updateLoadingText('Setting up controls...');
             
             // Настройка управления
             this.setupControls();
@@ -52,35 +69,49 @@ class DoodleJumpGame {
             // Настройка интерфейса
             this.setupUI();
             
+            this.updateLoadingText('Finalizing...');
+            
             // Переход в меню
             this.state = 'menu';
-            this.hideElement('loadingScreen');
-            this.showElement('startScreen');
+            
+            // Даем время на отрисовку
+            setTimeout(() => {
+                this.hideElement('loadingScreen');
+                this.showElement('startScreen');
+                console.log('🎉 Game initialized successfully!');
+            }, 500);
             
             // Запуск игрового цикла
             this.gameLoop();
             
-            console.log('🎉 Game initialized successfully!');
-            
         } catch (error) {
             console.error('❌ Error during game initialization:', error);
-            this.showErrorScreen('Failed to initialize game: ' + error.message);
+            this.showFatalError('Failed to initialize game: ' + error.message);
+        }
+    }
+
+    updateLoadingText(text) {
+        const loadingText = document.getElementById('loadingText');
+        if (loadingText) {
+            loadingText.textContent = text;
         }
     }
 
     setupControls() {
         console.log('🎛️ Setting up controls...');
         
-        // Клавиатура
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyDown(e);
-        });
+        // Клавиатура (для десктопа)
+        if (!this.isMobile) {
+            document.addEventListener('keydown', (e) => {
+                this.handleKeyDown(e);
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                this.handleKeyUp(e);
+            });
+        }
         
-        document.addEventListener('keyup', (e) => {
-            this.handleKeyUp(e);
-        });
-        
-        // Сенсорное управление
+        // Сенсорное управление (основное для мобильных)
         this.setupTouchControls();
         
         // Кнопки интерфейса
@@ -116,42 +147,72 @@ class DoodleJumpGame {
     }
 
     setupTouchControls() {
+        // Более надежная обработка касаний для мобильных
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            this.isTouching = true;
-            this.handleTouch(e.touches[0]);
-        });
+            if (this.state === 'playing') {
+                this.isTouching = true;
+                this.touchStartX = e.touches[0].clientX;
+                this.handleTouch(e.touches[0]);
+            }
+        }, { passive: false });
         
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            if (this.isTouching) {
+            if (this.state === 'playing' && this.isTouching) {
                 this.handleTouch(e.touches[0]);
             }
-        });
+        }, { passive: false });
         
         this.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             this.isTouching = false;
             this.player.clearTargetPosition();
-        });
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            this.isTouching = false;
+            this.player.clearTargetPosition();
+        }, { passive: false });
     }
 
     handleTouch(touch) {
         const canvasRect = this.canvas.getBoundingClientRect();
         const touchX = touch.clientX - canvasRect.left;
-        this.player.setTargetPosition(touchX);
+        
+        // Меньшая чувствительность для мобильных
+        const sensitivity = this.isMobile ? 0.15 : 0.2;
+        this.player.setTargetPosition(touchX * sensitivity);
     }
 
     setupButtonHandlers() {
         const startButton = document.getElementById('startButton');
         const restartButton = document.getElementById('restartButton');
+        const shareButton = document.getElementById('shareButton');
         
         if (startButton) {
             startButton.addEventListener('click', () => this.startGame());
+            startButton.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.startGame();
+            });
         }
         
         if (restartButton) {
             restartButton.addEventListener('click', () => this.restartGame());
+            restartButton.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.restartGame();
+            });
+        }
+        
+        if (shareButton) {
+            shareButton.addEventListener('click', () => this.shareScore());
+            shareButton.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.shareScore();
+            });
         }
     }
 
@@ -311,6 +372,26 @@ class DoodleJumpGame {
             loadingText.style.color = '#e74c3c';
         }
         this.state = 'menu';
+    }
+
+    showFatalError(message) {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingText = document.getElementById('loadingText');
+        
+        if (loadingScreen && loadingText) {
+            loadingText.textContent = message;
+            loadingText.style.color = '#e74c3c';
+            loadingText.style.fontSize = '16px';
+            
+            // Добавляем кнопку перезагрузки
+            const reloadButton = document.createElement('button');
+            reloadButton.textContent = 'Reload Game';
+            reloadButton.className = 'button';
+            reloadButton.style.marginTop = '20px';
+            reloadButton.onclick = () => window.location.reload();
+            
+            loadingScreen.appendChild(reloadButton);
+        }
     }
 
     hideElement(id) {
