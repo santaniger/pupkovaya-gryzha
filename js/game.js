@@ -1,4 +1,4 @@
-// Основной класс игры Doodle Jump - УПРОЩЕННАЯ ВЕРСИЯ
+// Основной класс игры Doodle Jump - МОБИЛЬНАЯ ВЕРСИЯ
 console.log('🔧 Loading DoodleJumpGame class...');
 
 class DoodleJumpGame {
@@ -76,8 +76,7 @@ class DoodleJumpGame {
             
             // Даем время на отрисовку
             setTimeout(() => {
-                this.hideElement('loadingScreen');
-                this.showElement('startScreen');
+                this.showScreen('startScreen');
                 console.log('🎉 Game initialized successfully!');
             }, 500);
             
@@ -116,34 +115,6 @@ class DoodleJumpGame {
         
         // Кнопки интерфейса
         this.setupButtonHandlers();
-    }
-
-    handleKeyDown(e) {
-        switch(e.code) {
-            case 'ArrowLeft':
-                this.player.setInput('left', true);
-                break;
-            case 'ArrowRight':
-                this.player.setInput('right', true);
-                break;
-            case 'Space':
-            case 'Enter':
-                if (this.state === 'menu') {
-                    this.startGame();
-                }
-                break;
-        }
-    }
-
-    handleKeyUp(e) {
-        switch(e.code) {
-            case 'ArrowLeft':
-                this.player.setInput('left', false);
-                break;
-            case 'ArrowRight':
-                this.player.setInput('right', false);
-                break;
-        }
     }
 
     setupTouchControls() {
@@ -186,6 +157,34 @@ class DoodleJumpGame {
         this.player.setTargetPosition(touchX * sensitivity);
     }
 
+    handleKeyDown(e) {
+        switch(e.code) {
+            case 'ArrowLeft':
+                this.player.setInput('left', true);
+                break;
+            case 'ArrowRight':
+                this.player.setInput('right', true);
+                break;
+            case 'Space':
+            case 'Enter':
+                if (this.state === 'menu') {
+                    this.startGame();
+                }
+                break;
+        }
+    }
+
+    handleKeyUp(e) {
+        switch(e.code) {
+            case 'ArrowLeft':
+                this.player.setInput('left', false);
+                break;
+            case 'ArrowRight':
+                this.player.setInput('right', false);
+                break;
+        }
+    }
+
     setupButtonHandlers() {
         const startButton = document.getElementById('startButton');
         const restartButton = document.getElementById('restartButton');
@@ -220,6 +219,28 @@ class DoodleJumpGame {
         this.updateHighScoreDisplay();
     }
 
+    // ИСПРАВЛЕННОЕ УПРАВЛЕНИЕ ЭКРАНАМИ
+    showScreen(screenId) {
+        console.log(`🖥️ Showing screen: ${screenId}`);
+        
+        // Скрываем все экраны
+        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen'];
+        screens.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+        
+        // Показываем нужный экран
+        const targetScreen = document.getElementById(screenId);
+        if (targetScreen) {
+            targetScreen.style.display = 'flex';
+        } else {
+            console.error(`❌ Screen not found: ${screenId}`);
+        }
+    }
+
     startGame() {
         console.log('🎮 Starting new game...');
         
@@ -232,14 +253,14 @@ class DoodleJumpGame {
         this.platformManager.reset();
         this.isTouching = false;
         
-        // Обновление интерфейса
-        this.hideElement('startScreen');
-        this.hideElement('gameOverScreen');
+        // Обновление интерфейса - скрываем все экраны, игра отображается напрямую
+        this.hideAllScreens();
         
         this.updateScoreDisplay();
     }
 
     restartGame() {
+        console.log('🔄 Restarting game...');
         this.startGame();
     }
 
@@ -259,24 +280,19 @@ class DoodleJumpGame {
         // Показ экрана Game Over
         document.getElementById('finalScore').textContent = Math.floor(this.score);
         document.getElementById('gameOverHighScore').textContent = `Best: ${Math.floor(this.highScore)}`;
-        this.showElement('gameOverScreen');
+        this.showScreen('gameOverScreen');
     }
 
-    updateScoreDisplay() {
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        if (scoreDisplay) {
-            scoreDisplay.textContent = `Score: ${Math.floor(this.score)} | Best: ${Math.floor(this.highScore)}`;
-        }
+    hideAllScreens() {
+        const screens = ['loadingScreen', 'startScreen', 'gameOverScreen'];
+        screens.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
     }
 
-    updateHighScoreDisplay() {
-        const menuHighScore = document.getElementById('menuHighScore');
-        if (menuHighScore) {
-            menuHighScore.textContent = `Best: ${Math.floor(this.highScore)}`;
-        }
-    }
-
-    // ОБНОВЛЕННАЯ СИСТЕМА КАМЕРЫ
     updateCamera() {
         // Камера следует за игроком, когда он поднимается выше центра
         if (this.player.y < this.cameraY + this.cameraOffset) {
@@ -320,7 +336,6 @@ class DoodleJumpGame {
         this.updateScoreDisplay();
     }
 
-    // ОБНОВЛЕННАЯ ОТРИСОВКА С УЧЕТОМ КАМЕРЫ
     draw() {
         try {
             // Очистка canvas
@@ -365,13 +380,73 @@ class DoodleJumpGame {
         this.animationId = requestAnimationFrame((time) => this.gameLoop(time));
     }
 
-    showErrorScreen(message) {
-        const loadingText = document.getElementById('loadingText');
-        if (loadingText) {
-            loadingText.textContent = message;
-            loadingText.style.color = '#e74c3c';
+    // Отправка счета в Telegram
+    sendTelegramScore() {
+        if (window.tg && typeof window.tg.sendData === 'function') {
+            try {
+                window.tg.sendData(JSON.stringify({
+                    action: 'gameOver',
+                    score: Math.floor(this.score),
+                    highScore: Math.floor(this.highScore),
+                    timestamp: Date.now()
+                }));
+            } catch (error) {
+                console.log('Could not send score to Telegram:', error);
+            }
         }
-        this.state = 'menu';
+    }
+
+    // Поделиться результатом
+    shareScore() {
+        const shareText = `🎯 I scored ${Math.floor(this.score)} points in Doodle Jump! Can you beat my score?`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Doodle Jump',
+                text: shareText,
+                url: window.location.href
+            }).catch(error => {
+                console.log('Share cancelled:', error);
+                this.copyToClipboard(shareText);
+            });
+        } else if (window.tg && typeof window.tg.shareUrl === 'function') {
+            window.tg.shareUrl(window.location.href, shareText);
+        } else {
+            this.copyToClipboard(shareText);
+        }
+    }
+
+    // Копирование в буфер обмена
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('Score copied to clipboard! 📋');
+        } catch (error) {
+            console.log('Clipboard copy failed:', error);
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Score copied to clipboard! 📋');
+        }
+    }
+
+    // Обновление отображения счета
+    updateScoreDisplay() {
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        if (scoreDisplay) {
+            scoreDisplay.textContent = `Score: ${Math.floor(this.score)} | Best: ${Math.floor(this.highScore)}`;
+        }
+    }
+
+    // Обновление отображения рекорда
+    updateHighScoreDisplay() {
+        const menuHighScore = document.getElementById('menuHighScore');
+        if (menuHighScore) {
+            menuHighScore.textContent = `Best: ${Math.floor(this.highScore)}`;
+        }
     }
 
     showFatalError(message) {
@@ -393,19 +468,7 @@ class DoodleJumpGame {
             loadingScreen.appendChild(reloadButton);
         }
     }
-
-    hideElement(id) {
-        const element = document.getElementById(id);
-        if (element) element.style.display = 'none';
-    }
-
-    showElement(id) {
-        const element = document.getElementById(id);
-        if (element) element.style.display = 'block';
-    }
 }
 
-// Явно добавляем класс в глобальную область видимости
 window.DoodleJumpGame = DoodleJumpGame;
-
 console.log('✅ DoodleJumpGame class defined');

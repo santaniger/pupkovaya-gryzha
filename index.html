@@ -70,6 +70,17 @@
             padding: 20px;
         }
         
+        /* Убедимся, что экраны изначально скрыты, кроме loading */
+        #startScreen, #gameOverScreen {
+            display: none;
+        }
+        
+        #loadingScreen {
+            display: flex;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
         .screen h1 {
             color: #2C3E50;
             font-size: 2.5em;
@@ -128,11 +139,6 @@
             font-size: 14px;
         }
         
-        #loadingScreen {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
         #loadingText {
             margin-top: 20px;
             font-size: 1.1em;
@@ -180,7 +186,7 @@
         </div>
         
         <!-- Start Screen -->
-        <div class="screen hidden" id="startScreen">
+        <div class="screen" id="startScreen">
             <h1>🦘 Doodle Jump</h1>
             <h2 id="menuHighScore">Best: 0</h2>
             <p>Jump from platform to platform!<br>Avoid falling down.</p>
@@ -192,7 +198,7 @@
         </div>
         
         <!-- Game Over Screen -->
-        <div class="screen hidden" id="gameOverScreen">
+        <div class="screen" id="gameOverScreen">
             <h1>💀 Game Over</h1>
             <h2 id="finalScore">0</h2>
             <p id="gameOverHighScore">Best: 0</p>
