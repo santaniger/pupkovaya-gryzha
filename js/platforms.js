@@ -190,7 +190,7 @@ class PlatformManager {
         
         // Генерируем платформы ВВЕРХ от стартовой
         let currentY = 500;
-        const platformsToGenerate = 50; // Увеличили начальное количество
+        const platformsToGenerate = 500; // Увеличили начальное количество
         
         for (let i = 0; i < platformsToGenerate; i++) {
             currentY -= this.getRandomGap();
