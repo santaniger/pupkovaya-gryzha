@@ -1,11 +1,9 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doodle Jump - Telegram</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -16,292 +14,151 @@
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden;
-            touch-action: none;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 10px;
+            overflow: hidden;
         }
         
-        #gameContainer {
+        .game-container {
             position: relative;
-            width: 100%;
-            max-width: 360px;
+            width: 360px;
             height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
         
         #gameCanvas {
             display: block;
-            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
-            border: 3px solid #2c3e50;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            width: 100%;
-            height: 100%;
+            background: #87CEEB;
         }
         
-        #uiOverlay {
+        .screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none;
-        }
-        
-        #scoreDisplay {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             background: rgba(255, 255, 255, 0.95);
-            padding: 8px 16px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            border: 2px solid #34495e;
-        }
-        
-        #startScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.98);
-            padding: 30px;
-            border-radius: 20px;
             text-align: center;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            width: 90%;
-            max-width: 320px;
-            border: 3px solid #3498db;
+            padding: 20px;
         }
         
-        #gameOverScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.98);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-            display: none;
-            pointer-events: auto;
-            width: 90%;
-            max-width: 320px;
-            border: 3px solid #e74c3c;
+        .screen h1 {
+            color: #2C3E50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
         
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 2em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        h2 {
-            color: #7f8c8d;
+        .screen h2 {
+            color: #34495E;
+            font-size: 1.5em;
             margin-bottom: 20px;
-            font-size: 1.1em;
-            font-weight: normal;
         }
         
-        button {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        .screen p {
+            color: #7F8C8D;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #FF6B6B, #EE5A52);
             color: white;
             border: none;
             padding: 12px 30px;
-            font-size: 16px;
+            font-size: 1.1em;
             border-radius: 25px;
             cursor: pointer;
-            margin: 8px;
+            margin: 10px;
             transition: all 0.3s ease;
-            pointer-events: auto;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
         
-        button:hover {
+        .button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
         }
         
-        button:active {
+        .button:active {
             transform: translateY(0);
         }
         
-        #finalScore {
-            font-size: 3em;
-            color: #e74c3c;
-            margin: 15px 0;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .controls {
-            margin-top: 20px;
-            color: #7f8c8d;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-        
-        .highScore {
-            color: #e74c3c;
-            font-weight: bold;
-            font-size: 1.2em;
-            margin: 10px 0;
-        }
-
-        #debugPanel {
+        .score-display {
             position: absolute;
             top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #00ff00;
-            padding: 10px;
-            border-radius: 10px;
-            font-family: monospace;
-            font-size: 10px;
-            max-width: 200px;
-            display: none;
-            pointer-events: none;
-            z-index: 1000;
-        }
-
-        #loadingScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.98);
-            padding: 30px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
             border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            width: 90%;
-            max-width: 320px;
-            border: 3px solid #f39c12;
+            font-weight: bold;
+            color: #2C3E50;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
         }
-
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #ecf0f1;
-            border-radius: 10px;
-            margin: 15px 0;
-            overflow: hidden;
+        
+        #loadingScreen {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #2ecc71, #27ae60);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-            width: 0%;
+        
+        #loadingText {
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+        
+        .controls-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #95a5a6;
+        }
+        
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
+    <div class="game-container">
         <canvas id="gameCanvas" width="360" height="600"></canvas>
         
-        <div id="uiOverlay">
-            <div id="scoreDisplay">Score: 0 | Best: 0</div>
-            <div id="debugPanel"></div>
-            
-            <div id="loadingScreen">
-                <h1>🎯 Doodle Jump</h1>
-                <h2>Loading...</h2>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div id="loadingText">Initializing game...</div>
+        <div class="score-display" id="scoreDisplay">Score: 0 | Best: 0</div>
+        
+        <!-- Loading Screen -->
+        <div class="screen" id="loadingScreen">
+            <h1>🎮 Doodle Jump</h1>
+            <div id="loadingText">Loading assets...</div>
+        </div>
+        
+        <!-- Start Screen -->
+        <div class="screen hidden" id="startScreen">
+            <h1>🦘 Doodle Jump</h1>
+            <h2 id="menuHighScore">Best: 0</h2>
+            <p>Jump from platform to platform!<br>Avoid falling down.</p>
+            <button class="button" id="startButton">Start Game</button>
+            <div class="controls-info">
+                <strong>Controls:</strong><br>
+                ← → Arrows or Touch to move
             </div>
-            
-            <div id="startScreen" style="display: none;">
-                <h1>🎯 Doodle Jump v8</h1>
-                <h2>Telegram Edition</h2>
-                <div class="highScore" id="menuHighScore">Best: 0</div>
-                <button id="startButton">🎮 Start Game</button>
-                <div class="controls">
-                    <p><strong>Controls:</strong><br>
-                    Touch and drag to move</p>
-                </div>
-            </div>
-            
-            <div id="gameOverScreen">
-                <h1>💀 Game Over</h1>
-                <div id="finalScore">0</div>
-                <div class="highScore" id="gameOverHighScore">Best: 0</div>
-                <button id="restartButton">🔄 Play Again</button>
-                <button id="shareButton">📤 Share Score</button>
-            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="screen hidden" id="gameOverScreen">
+            <h1>💀 Game Over</h1>
+            <h2 id="finalScore">0</h2>
+            <p id="gameOverHighScore">Best: 0</p>
+            <button class="button" id="restartButton">Play Again</button>
+            <button class="button" id="shareButton">Share Score</button>
         </div>
     </div>
 
-    <!-- Загрузка через единый загрузчик -->
     <script src="js/load.js"></script>
-
-    <script>
-        // Глобальные настройки отладки
-        window.DEBUG_MODE = false;
-        window.LOG_JUMP = true;
-        window.LOG_COLLISION = true;
-        window.LOG_VELOCITY = false;
-
-        // Инициализация после загрузки всех скриптов
-        window.addEventListener('load', function() {
-            console.log('=== DOODLE JUMP INITIALIZATION ===');
-            
-            // Показываем экран загрузки
-            const loadingScreen = document.getElementById('loadingScreen');
-            const startScreen = document.getElementById('startScreen');
-            const progressFill = document.getElementById('progressFill');
-            const loadingText = document.getElementById('loadingText');
-            
-            let loadProgress = 0;
-            const progressInterval = setInterval(() => {
-                loadProgress += Math.random() * 10;
-                if (loadProgress > 90) loadProgress = 90;
-                progressFill.style.width = loadProgress + '%';
-            }, 200);
-
-            // Инициализация игры с задержкой для гарантии загрузки всех классов
-            setTimeout(function() {
-                if (typeof DoodleJumpGame !== 'undefined') {
-                    clearInterval(progressInterval);
-                    progressFill.style.width = '100%';
-                    loadingText.textContent = 'Ready!';
-                    
-                    setTimeout(() => {
-                        window.game = new DoodleJumpGame();
-                        loadingScreen.style.display = 'none';
-                        startScreen.style.display = 'block';
-                        console.log('✅ Game initialized successfully!');
-                    }, 500);
-                    
-                    // Глобальные команды для отладки
-                    window.toggleDebug = function() {
-                        window.DEBUG_MODE = !window.DEBUG_MODE;
-                        const panel = document.getElementById('debugPanel');
-                        panel.style.display = window.DEBUG_MODE ? 'block' : 'none';
-                        console.log(`Debug mode: ${window.DEBUG_MODE}`);
-                    };
-                    
-                } else {
-                    console.error('❌ DoodleJumpGame class not found');
-                    loadingText.textContent = 'Error loading game. Please refresh.';
-                    clearInterval(progressInterval);
-                }
-            }, 100);
-        });
-    </script>
 </body>
 </html>

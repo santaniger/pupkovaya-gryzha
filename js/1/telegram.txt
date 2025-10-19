@@ -88,6 +88,7 @@ class TelegramIntegration {
         document.documentElement.style.setProperty('--safe-area-left', `${safeArea.left}px`);
         document.documentElement.style.setProperty('--safe-area-right', `${safeArea.right}px`);
         
+        // Используем безопасный вызов
         if (this.tg.isVersionAtLeast && this.tg.isVersionAtLeast('6.0')) {
             if (this.tg.requestViewport && typeof this.tg.requestViewport === 'function') {
                 this.tg.requestViewport();
@@ -98,6 +99,7 @@ class TelegramIntegration {
     }
 
     setupEvents() {
+        // Используем безопасные вызовы методов
         if (this.tg.onEvent && typeof this.tg.onEvent === 'function') {
             this.tg.onEvent('viewportChanged', (event) => {
                 console.log('Viewport changed:', event);

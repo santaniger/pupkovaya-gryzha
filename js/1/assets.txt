@@ -1,9 +1,6 @@
 // Менеджер ресурсов игры
 console.log('🔧 Loading AssetManager...');
 
-// Проверяем, не объявлен ли уже AssetManager
-if (typeof AssetManager === 'undefined') {
-
 class AssetManager {
     constructor() {
         this.images = {};
@@ -167,8 +164,9 @@ class AssetManager {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        const width = CONFIG.CANVAS.WIDTH;
-        const height = CONFIG.CANVAS.HEIGHT;
+        // Используем значения из CONFIG, но с проверкой
+        const width = CONFIG?.CANVAS?.WIDTH || 360;
+        const height = CONFIG?.CANVAS?.HEIGHT || 600;
         
         canvas.width = width;
         canvas.height = height;
@@ -337,9 +335,5 @@ class AssetManager {
         return this.loadProgress;
     }
 }
-
-window.AssetManager = AssetManager;
-
-} // конец проверки AssetManager
 
 console.log('✅ AssetManager class defined');

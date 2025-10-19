@@ -23,9 +23,7 @@ function loadScript(src) {
         };
         script.onerror = (error) => {
             console.error(`❌ Failed to load: ${src}`, error);
-            // Продолжаем загрузку даже если один скрипт не загрузился
-            loadedCount++;
-            resolve();
+            reject(error);
         };
         document.head.appendChild(script);
     });
@@ -40,39 +38,16 @@ async function loadAllScripts() {
         }
         
         console.log('🎉 All scripts loaded successfully!');
-        
-        // Даем время на инициализацию классов
-        setTimeout(() => {
-            try {
-                if (window.DoodleJumpGame) {
-                    window.game = new DoodleJumpGame();
-                    console.log('🎮 Game instance created successfully!');
-                } else {
-                    console.error('❌ DoodleJumpGame class not available');
-                    // Показываем сообщение об ошибке
-                    const loadingText = document.getElementById('loadingText');
-                    if (loadingText) {
-                        loadingText.textContent = 'Game failed to load. Please refresh.';
-                        loadingText.style.color = '#e74c3c';
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error creating game instance:', error);
-                const loadingText = document.getElementById('loadingText');
-                if (loadingText) {
-                    loadingText.textContent = 'Error starting game: ' + error.message;
-                    loadingText.style.color = '#e74c3c';
-                }
-            }
-        }, 500);
-        
+        return true;
     } catch (error) {
         console.error('💥 Error loading scripts:', error);
+        // Показываем сообщение об ошибке
         const loadingText = document.getElementById('loadingText');
         if (loadingText) {
             loadingText.textContent = 'Error loading game. Please refresh the page.';
             loadingText.style.color = '#e74c3c';
         }
+        return false;
     }
 }
 
